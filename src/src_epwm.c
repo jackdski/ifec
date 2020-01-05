@@ -11,16 +11,40 @@
 #include "driverlib.h"
 #include "device.h"
 
-static float duty_cycle = 0;
+/**********************************************************
+ *          P R I V A T E   V A R I A B L E S
+ **********************************************************/
 
-// initEPWMGPIO - Configure ePWM GPIO
+static float epwm1_duty_cycle = 0.0;
+static float epwm2_duty_cycle = 0.0;
+static float epwm3_duty_cycle = 0.0;
+static float epwm4_duty_cycle = 0.0;
+
+
+/**********************************************************
+ *                      I N I T S
+ **********************************************************/
+
+/**
+ * @brief Configures all of the needed ePWM module GPIO output pins
+ */
 void initEPWMGPIO(void) {
+    /* BUCK3V3_BASE - EPWM1 */
     // Disable pull up on GPIO 0 and GPIO 2 and configure them as PWM1A and PWM2A output respectively.
     GPIO_setPadConfig(0, GPIO_PIN_TYPE_STD);
     GPIO_setPinConfig(GPIO_0_EPWM1A);       // LaunchPad pin 80
 
+    /* BUCK5V0_BASE - EPWM2 */
     GPIO_setPadConfig(2, GPIO_PIN_TYPE_STD);
     GPIO_setPinConfig(GPIO_2_EPWM2A);
+
+    /* MPPT1_BASE - EPWM3 */
+    GPIO_setPadConfig(4, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_4_EPWM3A);
+
+    /* MPPT2_BASE - EPWM4 */
+    GPIO_setPadConfig(6, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_6_EPWM4A);
 }
 
 // initEPWM1 - Configure ePWM1
@@ -65,6 +89,13 @@ void initEPWM1(void) {
     EPWM_setTimeBaseCounter(EPWM1_BASE, 0);
 }
 
+/**
+ * @brief Initializes an ePWM module
+ *
+ * @details Sets up the ePWM module for the value of FREQUENCY defined in src_epwm.h.
+ *      The ePWM module will initially output a duty cycle of zero.
+ * @param epwm_base The base address of the ePWM module to be initialized
+ */
 void initEPWM(uint32_t epwm_base) {
     EALLOW;
 
@@ -105,33 +136,57 @@ void initEPWM(uint32_t epwm_base) {
 
 
     HRPWM_setMEPStep(epwm_base, 55);
-    HRPWM_setCounterCompareValue(epwm_base, HRPWM_COUNTER_COMPARE_A, 55);
+    HRPWM_setCounterCompareValue(epwm_base, HRPWM_COUNTER_COMPARE_A, 0);
     HRPWM_setTimeBasePeriod(epwm_base, 100);
 
 
     EPWM_setTimeBasePeriod(epwm_base, PERIOD);
-    EPWM_setCounterCompareValue(epwm_base, EPWM_COUNTER_COMPARE_A, (0.5*PERIOD));
+    EPWM_setCounterCompareValue(epwm_base, EPWM_COUNTER_COMPARE_A, 0);
     EDIS;
 
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);   // Enable sync and clock to PWM
     EPWM_setTimeBaseCounter(epwm_base, 0);
 }
 
+/**********************************************************
+ *                  D U T Y   C Y C L E
+ **********************************************************/
 
-void change_pwm_duty_cycle(float dc) {
-    // add in 0-100 check here
+/**
+ * @brief Changes the duty cycle of a ePWM module
+ *
+ * @param epwm_base The base address of the ePWM module whose duty cycle is to be changed
+ * @param dc A float the duty cycle will be changed to. Valid valued are: [0.0:100.0]
+ */
+void change_pwm_duty_cycle(uint32_t epwm_base, float dc) {
     if(dc < 0.0 || dc > 100.0) {
         return;
     }
     uint16_t dc_integer = (int)(dc);
     uint16_t dc_fraction = (int)((dc - dc_integer) * 100);
-    duty_cycle = dc;
-    HRPWM_setCounterCompareValue(EPWM1_BASE, HRPWM_COUNTER_COMPARE_A, dc_fraction);
-    EPWM_setCounterCompareValue(EPWM1_BASE, EPWM_COUNTER_COMPARE_A, (dc_integer*PERIOD) / 100);
-//    EALLOW;
-//    EDIS;
+    switch(epwm_base) {
+        case(EPWM1_BASE): epwm1_duty_cycle = dc;
+        case(EPWM2_BASE): epwm2_duty_cycle = dc;
+        case(EPWM3_BASE): epwm3_duty_cycle = dc;
+        case(EPWM4_BASE): epwm4_duty_cycle = dc;
+    }
+    HRPWM_setCounterCompareValue(epwm_base, HRPWM_COUNTER_COMPARE_A, dc_fraction);
+    EPWM_setCounterCompareValue(epwm_base, EPWM_COUNTER_COMPARE_A, (dc_integer*PERIOD) / 100);
 }
 
-float get_duty_cycle(void) {
-    return duty_cycle;
+/**
+ * @brief Returns the current duty cycle of an ePWM module
+ *
+ * @param epwm_base The base address of an ePWM module
+ * @return Float with the duty cycle of the ePWM module specified. Returns
+ *      -1.0 if the ePWM module specified is not in use or does not exist.
+ */
+float get_duty_cycle(uint32_t epwm_base) {
+    switch(epwm_base) {
+        case(EPWM1_BASE): return epwm1_duty_cycle;
+        case(EPWM2_BASE): return epwm2_duty_cycle;
+        case(EPWM3_BASE): return epwm3_duty_cycle;
+        case(EPWM4_BASE): return epwm4_duty_cycle;
+        default: return -1.0;  // for ePWM modules not used
+    }
 }
