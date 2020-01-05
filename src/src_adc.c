@@ -31,6 +31,7 @@ static uint16_t mppt_two_result_mv;
 /** Battery */
 static float battery_result_v;
 static float battery_result_i;
+static uint16_t battery_result_mv;
 
 
 /**********************************************************
@@ -68,7 +69,7 @@ void init_voltage_adc(void) {
     ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER4, ADC_TRIGGER_CPU1_TINT1, ADC_CH_ADCIN4, 15);    // Battery
 
 
-    // Set SOC1 to set the interrupt 1 flag. Enable the interrupt and make sure its flag is cleared.
+    // Set SOC interrupts. Enable the interrupts and make sure flags are cleared.
     ADC_setInterruptSource(ADCA_BASE, ADC_INT_NUMBER1, ADC_SOC_NUMBER0);    // 3.3V Buck
     ADC_setInterruptSource(ADCA_BASE, ADC_INT_NUMBER2, ADC_SOC_NUMBER1);    // 5.0V Buck
     ADC_setInterruptSource(ADCA_BASE, ADC_INT_NUMBER3, ADC_SOC_NUMBER2);    // MPPT1
@@ -86,7 +87,7 @@ void init_voltage_adc(void) {
 }
 
 void init_current_adc(void) {
-    ADC_setVREF(ADCB_BASE, ADC_REFERENCE_EXTERNAL, ADC_REFERENCE_3_3V);
+    ADC_setVREF(ADCB_BASE, ADC_REFERENCE_EXTERNAL, ADC_REFERENCE_3_3V); // 3.3V Vref has no affect
     ADC_setPrescaler(ADCB_BASE, ADC_CLK_DIV_4_0);
     ADC_setInterruptPulseMode(ADCB_BASE, ADC_PULSE_END_OF_CONV);
 
@@ -97,6 +98,19 @@ void init_current_adc(void) {
     ADC_setupSOC(ADCB_BASE, ADC_SOC_NUMBER1, ADC_TRIGGER_CPU1_TINT1, ADC_CH_ADCIN1, 15);    // MPPT2 Current
     ADC_setupSOC(ADCB_BASE, ADC_SOC_NUMBER2, ADC_TRIGGER_CPU1_TINT1, ADC_CH_ADCIN2, 15);    // Battery Current
 
+    // Set SOC interrupts. Enable the interrupts and make sure flags are cleared.
+    ADC_setInterruptSource(ADCB_BASE, ADC_INT_NUMBER1, ADC_SOC_NUMBER0);    // MPPT1 Current
+    ADC_setInterruptSource(ADCB_BASE, ADC_INT_NUMBER2, ADC_SOC_NUMBER1);    // MPPT2 Current
+    ADC_setInterruptSource(ADCB_BASE, ADC_INT_NUMBER3, ADC_SOC_NUMBER2);    // Battery Voltage and Input Current
+
+    ADC_enableInterrupt(ADCB_BASE, ADC_INT_NUMBER1);
+    ADC_enableInterrupt(ADCB_BASE, ADC_INT_NUMBER2);
+    ADC_enableInterrupt(ADCB_BASE, ADC_INT_NUMBER3);
+
+    ADC_clearInterruptStatus(ADCB_BASE, ADC_INT_NUMBER1);
+    ADC_clearInterruptStatus(ADCB_BASE, ADC_INT_NUMBER2);
+    ADC_clearInterruptStatus(ADCB_BASE, ADC_INT_NUMBER3);
+    ADC_clearInterruptStatus(ADCB_BASE, ADC_INT_NUMBER4);
 }
 
 /**********************************************************
@@ -189,16 +203,47 @@ __interrupt void adc_buck_two_irq(void) {
     Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
 }
 
-__interrupt void adc_mppt_one_irq(void) {
+__interrupt void adc_mppt_one_v_irq(void) {
     mppt_one_result_mv = ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER2);
     mppt_one_result_v = adc_convert_to_v(mppt_one_result_mv);
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER3);
     Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
 }
 
-__interrupt void adc_mppt_two_irq(void) {
+__interrupt void adc_mppt_one_i_irq(void) {
+    uint16_t adc_result = ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER0);
+    mppt_one_result_i = adc_convert_to_v(adc_result) / MPPT_SHUNT_R;
+    ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER4);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
+}
+
+__interrupt void adc_mppt_two_v_irq(void) {
     mppt_two_result_mv = ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER3);
     mppt_two_result_v = adc_convert_to_v(mppt_two_result_mv);
+    ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER4);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
+}
+
+__interrupt void adc_mppt_two_i_irq(void) {
+    uint16_t adc_result = ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER1);
+    mppt_two_result_i = adc_convert_to_v(adc_result) / MPPT_SHUNT_R;
+    ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER4);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
+}
+
+/**
+ * Will update both battery voltage and input current after conversion trigger
+ *  from CPUTIMER1
+ */
+__interrupt void adc_battery_irq(void) {
+    // battery voltage
+    battery_result_mv = ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER4);
+    battery_result_v = adc_convert_to_v(battery_result_mv);
+
+    // battery current
+    uint16_t adc_result = ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER3);
+    mppt_two_result_i = adc_convert_to_v(adc_result) / BATTERY_IN_SHUNT_R;
+
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER4);
     Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
 }

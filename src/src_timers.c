@@ -24,8 +24,10 @@ static uint32_t cpuTimer2IntCount = 0;
 
 /** LED */
 static bool light_status = 1;
-static bool direction = 1;
 
+#ifdef LED_BRIGHTNESS
+static bool direction = 1;
+#endif
 /** control loop active variables */
 static bool pid_active = false;
 static bool mppt_active = false;

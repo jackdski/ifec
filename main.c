@@ -58,8 +58,11 @@ void main(void) {
     Interrupt_initVectorTable();
     Interrupt_register(INT_ADCA1, &adc_buck_one_irq);
     Interrupt_register(INT_ADCA2, &adc_buck_two_irq);
-    Interrupt_register(INT_ADCA3, &adc_mppt_one_irq);
-    Interrupt_register(INT_ADCA4, &adc_mppt_two_irq);
+    Interrupt_register(INT_ADCA3, &adc_mppt_one_v_irq);
+    Interrupt_register(INT_ADCA4, &adc_mppt_two_v_irq);
+    Interrupt_register(INT_ADCB1, &adc_mppt_one_i_irq);
+    Interrupt_register(INT_ADCB2, &adc_mppt_two_i_irq);
+    Interrupt_register(INT_ADCB3, &adc_battery_irq);    // both voltage and current
     Interrupt_register(INT_TIMER1, &cpuTimer1ISR);
     Interrupt_register(INT_TIMER1, &cpuTimer2ISR);
 

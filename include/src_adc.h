@@ -13,7 +13,12 @@
 #define ADC_MAX_VALUE       4095    // 12-bit
 #define ADC_MAX_VALUE_F     4095.0  // 12-bit floating point
 #define VREF_MV             3300U   // 3.3V in millivolts
-#define VREF_MV_F           3.3    // 3.3V
+#define VREF_MV_F           3.3     // 3.3V
+
+#define VREFHI_V            3.3     // 3.3V
+#define MPPT_SHUNT_R        0.1     // 100mOhms
+#define BATTERY_IN_SHUNT_R  0.1     // 100mOhms
+
 
 #define VOLTAGE_ADC_BASE    ADCA_BASE   // references to common ground
 #define CURRENT_ADC_BASE    ADCB_BASE   // uses VREFHI and VREFLO pins across shunt resistors
@@ -36,7 +41,10 @@ float adc_convert_to_v(uint32_t adc_result);
 /***    I N T E R R U P T S    ***/
 __interrupt void adc_buck_one_irq(void);
 __interrupt void adc_buck_two_irq(void);
-__interrupt void adc_mppt_one_irq(void);
-__interrupt void adc_mppt_two_irq(void);
+__interrupt void adc_mppt_one_v_irq(void);
+__interrupt void adc_mppt_one_i_irq(void);
+__interrupt void adc_mppt_two_v_irq(void);
+__interrupt void adc_mppt_two_i_irq(void);
+__interrupt void adc_battery_irq(void);
 
 #endif /* INCLUDE_SRC_ADC_H_ */
