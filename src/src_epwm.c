@@ -135,15 +135,28 @@ void initEPWM(uint32_t epwm_base) {
     HRPWM_disablePeriodControl(epwm_base);
 
 
+    // Dead Band
+    HRPWM_setDeadbandMEPEdgeSelect(epwm_base, HRPWM_DB_MEP_CTRL_RED_FED);
+    HRPWM_setRisingEdgeDelayLoadMode(epwm_base, HRPWM_LOAD_ON_CNTR_ZERO_PERIOD);
+    HRPWM_setFallingEdgeDelayLoadMode(epwm_base, HRPWM_LOAD_ON_CNTR_ZERO_PERIOD);
+
+
+    // Invert ePWMxA signal
+    HRPWM_setChannelBOutputPath(epwm_base, HRPWM_OUTPUT_ON_B_INV_A);    // ePWMxB is inverse of ePWMxA
+
+
+    // Set Duty Cycle and Period
     HRPWM_setMEPStep(epwm_base, 55);
     HRPWM_setCounterCompareValue(epwm_base, HRPWM_COUNTER_COMPARE_A, 0);
     HRPWM_setTimeBasePeriod(epwm_base, 100);
 
 
+    // Configure Period
     EPWM_setTimeBasePeriod(epwm_base, PERIOD);
     EPWM_setCounterCompareValue(epwm_base, EPWM_COUNTER_COMPARE_A, 0);
     EDIS;
 
+    // Enable ePWM peripheral
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);   // Enable sync and clock to PWM
     EPWM_setTimeBaseCounter(epwm_base, 0);
 }

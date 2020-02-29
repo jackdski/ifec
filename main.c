@@ -21,8 +21,15 @@
 #include "pid.h"
 #include "mppt.h"
 
-#define USE_PID
+/** Test Selection **/
+#define TEST_3V3_BUCK
+#define TEST_5V_BUCK
+#define TEST_3V3_BUCK_OPEN_LOOP
+#define TEST_5V_BUCK_OPEN_LOOP
+#define TEST_MPPT_ONE
+#define TEST_MPPT_TWO
 
+/**  Controls Timers  **/
 #define TIMER_10MS      10000
 #define TIMER_500MS     500000
 #define TIMER_1000MS    1000000
@@ -31,8 +38,6 @@
 uint16_t status;
 PID_t buck_one_pid;
 PID_t buck_two_pid;
-PID_t mppt_one_pid;
-PID_t mppt_two_pid;
 MPPT_t mppt_one;
 MPPT_t mppt_two;
 
@@ -44,8 +49,6 @@ void main(void) {
     // PID
     PID_init(&buck_one_pid, 3.2, 2.1, 2.3, 1.250, 10); // 10ms intervals, bucks 8V to 5V with 1k and 330ohm voltage divider
     PID_init(&buck_two_pid, 3.2, 2.1, 2.3, 2.00, 10); // 10ms intervals, bucks 5V to 2.00V with 1k and 1k voltage divider
-    PID_init(&mppt_one_pid, 3.2, 2.1, 2.3, 1.250, 10); // 10ms intervals, bucks ~17V to 8.00V with 10k and 1.8k voltage divider
-    PID_init(&mppt_two_pid, 3.2, 2.1, 2.3, 1.250, 10); // 10ms intervals, bucks ~17V to 8.00V with 10k and 1.8k voltage divider
 
     // MPPT
     mppt_init(&mppt_one, MPPT1_BASE, 2.5, 5.0);
@@ -87,14 +90,14 @@ void main(void) {
 
     // Enable interrupts
     Interrupt_enable(INT_ADCA1);
-    Interrupt_enable(INT_TIMER1);
-    Interrupt_enable(INT_TIMER2);
-
+    Interrupt_enable(INT_TIMER1);   // PID
+    Interrupt_enable(INT_TIMER2);   // MPPT
 
     // Enable Global Interrupt (INTM) and realtime interrupt (DBGM)
     EINT;
     ERTM;
 
+    // Start Off timers and PWM
     CPUTimer_startTimer(CPUTIMER1_BASE);        // Start PID Timer
     CPUTimer_startTimer(CPUTIMER2_BASE);        // Start MPPT Timer
     change_pwm_duty_cycle(BUCK3V3_BASE, 25.0);  // Initial PWM is 25.0%
@@ -105,7 +108,6 @@ void main(void) {
 
     // Loop Forever
     for(;;) {
-#ifdef USE_PID
         if(get_pid_active() == true) {
             change_pwm_duty_cycle(BUCK3V3_BASE, PID_calculate(&buck_one_pid, get_buck_v(BUCK3V3_BASE)));
             change_pwm_duty_cycle(BUCK5V0_BASE, PID_calculate(&buck_two_pid, get_buck_v(BUCK5V0_BASE)));
@@ -117,15 +119,13 @@ void main(void) {
             mppt_update_values(&mppt_two);
 
             // change duty cycle accordingly
-            change_pwm_duty_cycle(mppt_one.mppt_base, (get_duty_cycle(mppt_one.mppt_base) - mppt_calculate(&mppt_one)));
-            change_pwm_duty_cycle(mppt_two.mppt_base, (get_duty_cycle(mppt_two.mppt_base) - mppt_calculate(&mppt_two)));
-
+            change_pwm_duty_cycle(mppt_one.mppt_base, (get_duty_cycle(mppt_one.mppt_base) + mppt_calculate(&mppt_one)));
+            change_pwm_duty_cycle(mppt_two.mppt_base, (get_duty_cycle(mppt_two.mppt_base) + mppt_calculate(&mppt_two)));
             set_mppt_active(false);
         }
         else if ((get_pid_active() == false) && (get_mppt_active() == false)) {  // if everything is ready to go
-               IDLE;    // go to low-power mode until TIMER1 wakes up CPU
+            IDLE;   // go to low-power mode until TIMER1 wakes up CPU
         }
-#endif
     }
 }
 

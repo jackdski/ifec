@@ -11,7 +11,8 @@
 #include <stdint.h>
 
 #define V_BATTERY_LIMIT     7.95    // [V]
-#define I_BATTERY_LIMIT     5000.0  // [mA]
+#define V_BATTERY_MIN_LIMIT 6.0     // [V]
+#define I_BATTERY_LIMIT     3000.0  // [mA]
 
 typedef struct {
     float v_result;     // [V]

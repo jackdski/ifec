@@ -8,7 +8,7 @@
 #ifndef INCLUDE_SRC_EPWM_H_
 #define INCLUDE_SRC_EPWM_H_
 
-#define     SWITCHING_FREQUENCY     1000000      // [Hz]
+#define     SWITCHING_FREQUENCY     1000000     // [Hz]
 #define     CLOCK_FREQUENCY         100000000   // [Hz]
 #define     PERIOD                  (CLOCK_FREQUENCY / SWITCHING_FREQUENCY)
 

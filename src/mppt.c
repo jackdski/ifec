@@ -45,14 +45,26 @@ void mppt_update_values(MPPT_t * mppt) {
 /**
  * Combines the MPPT algorithm with the CC/CV battery charging algorithm
  *  to ensure than the battery voltage and current limits are not gone over.
+ *
+ *  @return A change in duty cycle
  */
 float mppt_calculate(MPPT_t * mppt) {
     /** CC/CV */
+
+    /* current is too high */
     if(mppt->i_result > I_BATTERY_LIMIT) {
         return -(mppt->delta_max * (mppt->i_result - I_BATTERY_LIMIT));
     }
+
+    /* voltage is too high */
     else if(mppt->v_result > V_BATTERY_LIMIT) {
         return -(mppt->delta_max * (mppt->v_result - V_BATTERY_LIMIT));
+    }
+
+    /* voltage is too low */
+    else if(mppt->v_result < V_BATTERY_MIN_LIMIT) {
+        /* turn off converter since PV voltage is too low */
+        return -(get_duty_cycle(mppt->mppt_base));  // returns value to get duty cycle to zero
     }
 
     /** MPPT */
