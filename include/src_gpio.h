@@ -10,6 +10,7 @@
 
 /***    I N I T S    ***/
 void init_led5(void);
+void toggle_led(void);
 
 
 #endif /* INCLUDE_SRC_GPIO_H_ */

@@ -22,12 +22,22 @@
 #include "mppt.h"
 
 /** Test Selection **/
-#define TEST_3V3_BUCK
-#define TEST_5V_BUCK
-#define TEST_3V3_BUCK_OPEN_LOOP
-#define TEST_5V_BUCK_OPEN_LOOP
-#define TEST_MPPT_ONE
-#define TEST_MPPT_TWO
+#define NORMAL_OPERATION
+//#define TEST_OUTPUT_BUCKS
+//#define TEST_OUTPUT_BUCKS_OPEN_LOOP
+//#define TEST_MPPT_BUCKS
+
+#ifdef NORMAL_OPERATION
+#define USE_PID
+#define USE_MPPT
+#endif
+#ifdef TEST_OUTPUT_BUCKS
+#define USE_PID
+#endif
+#ifdef TEST_MPPT_BUCKS
+#define USE_MPPT
+#endif
+
 
 /**  Controls Timers  **/
 #define TIMER_10MS      10000
@@ -98,16 +108,32 @@ void main(void) {
     ERTM;
 
     // Start Off timers and PWM
+#ifdef USE_PID
     CPUTimer_startTimer(CPUTIMER1_BASE);        // Start PID Timer
+#endif
+#ifdef USE_MPPT
     CPUTimer_startTimer(CPUTIMER2_BASE);        // Start MPPT Timer
+#endif
+#ifndef TEST_OUTPUT_BUCKS_OPEN_LOOP
+#ifdef NORMAL_OPERATION
     change_pwm_duty_cycle(BUCK3V3_BASE, 25.0);  // Initial PWM is 25.0%
     change_pwm_duty_cycle(BUCK5V0_BASE, 25.0);  // Initial PWM is 25.0%
     change_pwm_duty_cycle(MPPT1_BASE, 25.0);    // Initial PWM is 25.0%
     change_pwm_duty_cycle(MPPT2_BASE, 25.0);    // Initial PWM is 25.0%
+#endif
+#ifdef TEST_OUTPUT_BUCKS
+    change_pwm_duty_cycle(BUCK3V3_BASE, 25.0);  // Initial PWM is 25.0%
+    change_pwm_duty_cycle(BUCK5V0_BASE, 25.0);  // Initial PWM is 25.0%
+#endif
+#ifdef TEST_MPPT_BUCKS
+    change_pwm_duty_cycle(MPPT1_BASE, 25.0);    // Initial PWM is 25.0%
+    change_pwm_duty_cycle(MPPT2_BASE, 25.0);    // Initial PWM is 25.0%
+#endif
+#endif
 
-
-    // Loop Forever
+    // Loop
     for(;;) {
+#ifdef NORMAL_OPERATION
         if(get_pid_active() == true) {
             change_pwm_duty_cycle(BUCK3V3_BASE, PID_calculate(&buck_one_pid, get_buck_v(BUCK3V3_BASE)));
             change_pwm_duty_cycle(BUCK5V0_BASE, PID_calculate(&buck_two_pid, get_buck_v(BUCK5V0_BASE)));
@@ -122,10 +148,39 @@ void main(void) {
             change_pwm_duty_cycle(mppt_one.mppt_base, (get_duty_cycle(mppt_one.mppt_base) + mppt_calculate(&mppt_one)));
             change_pwm_duty_cycle(mppt_two.mppt_base, (get_duty_cycle(mppt_two.mppt_base) + mppt_calculate(&mppt_two)));
             set_mppt_active(false);
+            toggle_led();
         }
         else if ((get_pid_active() == false) && (get_mppt_active() == false)) {  // if everything is ready to go
             IDLE;   // go to low-power mode until TIMER1 wakes up CPU
         }
+#endif
+#ifdef TEST_OUTPUT_BUCKS
+        if(get_pid_active() == true) {
+            change_pwm_duty_cycle(BUCK3V3_BASE, PID_calculate(&buck_one_pid, get_buck_v(BUCK3V3_BASE)));
+            change_pwm_duty_cycle(BUCK5V0_BASE, PID_calculate(&buck_two_pid, get_buck_v(BUCK5V0_BASE)));
+            set_pid_active(false);
+            toggle_led();
+        }
+        else if (get_pid_active() == false) {  // if everything is ready to go
+            IDLE;   // go to low-power mode until TIMER1 wakes up CPU
+        }
+#endif
+#ifdef TEST_MPPT_BUCKS
+        if(get_mppt_active() == true) {
+            // Update values
+            mppt_update_values(&mppt_one);
+            mppt_update_values(&mppt_two);
+
+            // change duty cycle accordingly
+            change_pwm_duty_cycle(mppt_one.mppt_base, (get_duty_cycle(mppt_one.mppt_base) + mppt_calculate(&mppt_one)));
+            change_pwm_duty_cycle(mppt_two.mppt_base, (get_duty_cycle(mppt_two.mppt_base) + mppt_calculate(&mppt_two)));
+            set_mppt_active(false);
+            toggle_led();
+        }
+        else if (get_mppt_active() == false) {  // if everything is ready to go
+            IDLE;   // go to low-power mode until TIMER1 wakes up CPU
+        }
+#endif
     }
 }
 

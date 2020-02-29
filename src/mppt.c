@@ -7,8 +7,23 @@
 
 #include "mppt.h"
 #include "src_adc.h"
+#include "src_epwm.h"
 #include <stdint.h>
 
+/**************************************************
+ * mppt_init
+ *
+ * @brief Initializes an instance of the MPPT struct
+ *
+ * @param mppt  Instance of the MPPT structure
+ *
+ * @param mppt_base EPWM base that this MPPT strcuture is associated with
+ *
+ * @param delta_d How much to vary the duty cycle by to find the maximum power point
+ *
+ * @param delta_max How much to vary the duty cycle by if a maximum voltage or current reading is made
+ *
+ **************************************************/
 void mppt_init(MPPT_t * mppt, uint32_t mppt_base, float delta_d, float delta_max) {
     mppt->mppt_base = mppt_base;
     mppt->delta_d = delta_d;
@@ -25,6 +40,16 @@ void mppt_init(MPPT_t * mppt, uint32_t mppt_base, float delta_d, float delta_max
     mppt->delta_p = 0;
 }
 
+
+/**************************************************
+ * mppt_update_values
+ *
+ * @brief Samples the associated MPPT converter's voltage and current
+ *      and updates the corresponding values in the MPPT structure
+ *
+ * @param mppt Instance of the MPPT structure
+ *
+ *************************************************/
 void mppt_update_values(MPPT_t * mppt) {
     // get updated values from ADC conversions
     mppt->v_result = get_mppt_v(mppt->mppt_base);
@@ -42,12 +67,18 @@ void mppt_update_values(MPPT_t * mppt) {
     mppt->power_old = mppt->power;
 }
 
-/**
- * Combines the MPPT algorithm with the CC/CV battery charging algorithm
- *  to ensure than the battery voltage and current limits are not gone over.
+/*************************************************
+ * mppt_calculate
  *
- *  @return A change in duty cycle
- */
+ * @brief Implements an MPPT algorithm with CC/CV battery charging
+ *
+ * @details Combines the MPPT algorithm with the CC/CV battery charging algorithm
+ *  to ensure than the battery voltage and current limits are not gone over. If the
+ *  PV panel voltage is below the battery voltage, the converter will be disabled
+ *
+ *  @return How much to change the duty cycle by
+ *
+ *************************************************/
 float mppt_calculate(MPPT_t * mppt) {
     /** CC/CV */
 
@@ -57,7 +88,7 @@ float mppt_calculate(MPPT_t * mppt) {
     }
 
     /* voltage is too high */
-    else if(mppt->v_result > V_BATTERY_LIMIT) {
+    else if(mppt->v_result > get_battery_v()) {
         return -(mppt->delta_max * (mppt->v_result - V_BATTERY_LIMIT));
     }
 

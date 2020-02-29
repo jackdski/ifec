@@ -18,3 +18,7 @@ void init_led5(void) {
     GPIO_setDirectionMode(DEVICE_GPIO_PIN_LED1, GPIO_DIR_MODE_OUT);
     GPIO_writePin(DEVICE_GPIO_PIN_LED1, 0);
 }
+
+void toggle_led(void) {
+    GPIO_togglePin(DEVICE_GPIO_PIN_LED1);
+}
