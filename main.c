@@ -51,7 +51,8 @@ PID_t buck_two_pid;
 MPPT_t mppt_one;
 MPPT_t mppt_two;
 
-// main
+
+/** main **/
 void main(void) {
     // Initialize device clock and peripherals
     Device_init();
@@ -71,19 +72,22 @@ void main(void) {
     Interrupt_initVectorTable();
     Interrupt_register(INT_ADCA1, &adc_buck_one_irq);
     Interrupt_register(INT_ADCA2, &adc_buck_two_irq);
-    Interrupt_register(INT_ADCA3, &adc_mppt_one_v_irq);
-    Interrupt_register(INT_ADCA4, &adc_mppt_two_v_irq);
+    Interrupt_register(INT_ADCA3, &adc_battery_v_irq);
+    Interrupt_register(INT_ADCA4, &adc_battery_i_irq);
+
     Interrupt_register(INT_ADCB1, &adc_mppt_one_i_irq);
     Interrupt_register(INT_ADCB2, &adc_mppt_two_i_irq);
-    Interrupt_register(INT_ADCB3, &adc_battery_irq);    // both voltage and current
+    Interrupt_register(INT_ADCB3, &adc_mppt_one_v_irq);
+    Interrupt_register(INT_ADCB4, &adc_mppt_two_v_irq);
+
     Interrupt_register(INT_TIMER1, &cpuTimer1ISR);
     Interrupt_register(INT_TIMER1, &cpuTimer2ISR);
 
     // Configure peripherals
     Device_initGPIO();
     init_led5();
-    init_voltage_adc();
-    init_current_adc();
+    init_battery_output_bucks_adc();
+    init_mppt_adc();
     init_timer(CPUTIMER1_BASE, TIMER_10MS);
     init_timer(CPUTIMER2_BASE, TIMER_1000MS);
 
@@ -107,13 +111,8 @@ void main(void) {
     EINT;
     ERTM;
 
-    // Start Off timers and PWM
-#ifdef USE_PID
-    CPUTimer_startTimer(CPUTIMER1_BASE);        // Start PID Timer
-#endif
-#ifdef USE_MPPT
-    CPUTimer_startTimer(CPUTIMER2_BASE);        // Start MPPT Timer
-#endif
+
+    // Start off PWM
 #ifndef TEST_OUTPUT_BUCKS_OPEN_LOOP
 #ifdef NORMAL_OPERATION
     change_pwm_duty_cycle(BUCK3V3_BASE, 25.0);  // Initial PWM is 25.0%
@@ -131,22 +130,88 @@ void main(void) {
 #endif
 #endif
 
-    // Loop
+    /** Make sure bucks and currents are readable **/
+    bool initialized_elements = false;
+    while(initialized_elements == false) {
+        initialized_elements = true;
+        if(!(get_force_buck_v(BUCK3V3_BASE) > 0.0)) {
+            initialized_elements = false;
+        }
+        if(!(get_force_buck_v(BUCK5V0_BASE) > 0.0)) {
+            initialized_elements = false;
+        }
+        if(!(get_force_mppt_v(MPPT1_BASE) > 0.0)) {
+            initialized_elements = false;
+        }
+        if(!(get_force_mppt_v(MPPT2_BASE) > 0.0)) {
+            initialized_elements = false;
+        }
+        if(!(get_force_mppt_i(MPPT1_BASE) > 0.0)) {
+            initialized_elements = false;
+        }
+        if(!(get_force_mppt_i(MPPT2_BASE) > 0.0)) {
+            initialized_elements = false;
+        }
+        if(!(get_force_battery_v() > 0.0)) {
+            initialized_elements = false;
+        }
+        if(!(get_force_battery_i() > 0.0)) {
+            initialized_elements = false;
+        }
+    }
+
+    // Reconfigure the ADCs to start conversions on timer interrupts
+    reconfig_adc_for_timers();
+
+    // Start Off timers
+#ifdef USE_PID
+    CPUTimer_startTimer(CPUTIMER1_BASE);        // Start PID Timer
+#endif
+#ifdef USE_MPPT
+    CPUTimer_startTimer(CPUTIMER2_BASE);        // Start MPPT Timer
+#endif
+
+
+    /** SuperLoop **/
     for(;;) {
 #ifdef NORMAL_OPERATION
+        /** PID **/
         if(get_pid_active() == true) {
             change_pwm_duty_cycle(BUCK3V3_BASE, PID_calculate(&buck_one_pid, get_buck_v(BUCK3V3_BASE)));
             change_pwm_duty_cycle(BUCK5V0_BASE, PID_calculate(&buck_two_pid, get_buck_v(BUCK5V0_BASE)));
             set_pid_active(false);
         }
+
+        /** MPPT **/
         if(get_mppt_active() == true) {
-            // Update values
+            /** Update values **/
             mppt_update_values(&mppt_one);
             mppt_update_values(&mppt_two);
 
-            // change duty cycle accordingly
-            change_pwm_duty_cycle(mppt_one.mppt_base, (get_duty_cycle(mppt_one.mppt_base) + mppt_calculate(&mppt_one)));
-            change_pwm_duty_cycle(mppt_two.mppt_base, (get_duty_cycle(mppt_two.mppt_base) + mppt_calculate(&mppt_two)));
+            /** MPPT 1 **/
+            if(mppt_one.suspended == false) {
+                change_pwm_duty_cycle(mppt_one.mppt_base, (get_duty_cycle(mppt_one.mppt_base) + mppt_calculate(&mppt_one)));
+            }
+            else if(mppt_one.suspended == true) {
+                // see if PV voltage is higher suspended voltage reading plus hysteresis
+                float latest_mppt_1 = get_force_mppt_v(mppt_one.mppt_base);
+                  if(latest_mppt_1 - mppt_one.suspended_v >= 2.0) {
+                      ADC_setupSOC(ADCB_BASE, ADC_SOC_NUMBER2, ADC_TRIGGER_CPU1_TINT2, ADC_CH_ADCIN6, 15);
+                  }
+            }
+
+            /** MPPT 2 **/
+            if(mppt_two.suspended == false) {
+                change_pwm_duty_cycle(mppt_two.mppt_base, (get_duty_cycle(mppt_two.mppt_base) + mppt_calculate(&mppt_two)));
+            }
+            else if(mppt_two.suspended == true) {
+                // see if PV voltage is higher suspended voltage reading plus hysteresis
+                float latest_mppt_2 = get_force_mppt_v(mppt_two.mppt_base);
+                if(latest_mppt_2 - mppt_two.suspended_v >= 2.0) {
+                    ADC_setupSOC(ADCB_BASE, ADC_SOC_NUMBER3, ADC_TRIGGER_CPU1_TINT2, ADC_CH_ADCIN7, 15);
+                }
+            }
+
             set_mppt_active(false);
             toggle_led();
         }

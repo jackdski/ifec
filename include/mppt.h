@@ -14,6 +14,8 @@
 #define V_BATTERY_MIN_LIMIT 6.0     // [V]
 #define I_BATTERY_LIMIT     3000.0  // [mA]
 
+#define PV_HYSTERISIS       3.00    // [V]
+
 typedef struct {
     float v_result;     // [V]
     float v_old;        // [V]
@@ -27,6 +29,8 @@ typedef struct {
     float delta_d;      // change in duty cycle
     float delta_max;    // change in duty cycle to be used with CC/CV
     uint32_t mppt_base; // MPPT instance identifier
+    bool suspended;     // for when PV voltage is too low
+    float suspended_v;  // [V] when PV was suspended
 }MPPT_t;
 
 

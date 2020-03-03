@@ -24,8 +24,17 @@
 #define CURRENT_ADC_BASE    ADCB_BASE   // uses VREFHI and VREFLO pins across shunt resistors
 
 /***    I N I T S    ***/
-void init_voltage_adc(void);
-void init_current_adc(void);
+void init_battery_output_bucks_adc(void);
+void init_mppt_adc(void);
+void reconfig_adc_for_timers(void);
+
+/***    F O R C E  C O N V E R S I O N S    ***/
+float get_force_buck_v(uint32_t buck_base);
+float get_force_mppt_v(uint32_t mppt_base);
+float get_force_mppt_i(uint32_t mppt_base);
+float get_force_battery_v(void);
+float get_force_battery_i(void);
+
 
 /***    G E T S    ***/
 float get_buck_v(uint32_t buck_base);
@@ -45,6 +54,7 @@ __interrupt void adc_mppt_one_v_irq(void);
 __interrupt void adc_mppt_one_i_irq(void);
 __interrupt void adc_mppt_two_v_irq(void);
 __interrupt void adc_mppt_two_i_irq(void);
-__interrupt void adc_battery_irq(void);
+__interrupt void adc_battery_v_irq(void);
+__interrupt void adc_battery_i_irq(void);
 
 #endif /* INCLUDE_SRC_ADC_H_ */

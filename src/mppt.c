@@ -5,10 +5,13 @@
  *      Author: jack
  */
 
+#include <stdint.h>
+#include <stdbool.h>
+
 #include "mppt.h"
 #include "src_adc.h"
 #include "src_epwm.h"
-#include <stdint.h>
+#include "driverlib.h"
 
 /**************************************************
  * mppt_init
@@ -26,6 +29,7 @@
  **************************************************/
 void mppt_init(MPPT_t * mppt, uint32_t mppt_base, float delta_d, float delta_max) {
     mppt->mppt_base = mppt_base;
+    mppt->suspended = false;
     mppt->delta_d = delta_d;
     mppt->delta_max = delta_max;
 
@@ -65,6 +69,23 @@ void mppt_update_values(MPPT_t * mppt) {
     mppt->v_old = mppt->v_result;
     mppt->i_old = mppt->i_result;
     mppt->power_old = mppt->power;
+
+    /* voltage is too low */
+    if((mppt->suspended == false) && (mppt->v_result < (get_battery_v() * 1.1))) {
+        /* turn off converter since PV voltage is too low */
+        mppt->suspended = true;
+
+        switch(mppt->mppt_base) {
+            case(MPPT1_BASE): {
+                ADC_setupSOC(ADCB_BASE, ADC_SOC_NUMBER2, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN6, 15);
+                break;
+            }
+            case(MPPT2_BASE): {
+                ADC_setupSOC(ADCB_BASE, ADC_SOC_NUMBER3, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN7, 15);
+                break;
+            }
+        }
+    }
 }
 
 /*************************************************
@@ -80,29 +101,26 @@ void mppt_update_values(MPPT_t * mppt) {
  *
  *************************************************/
 float mppt_calculate(MPPT_t * mppt) {
-    /** CC/CV */
+    if(mppt->suspended == false) {
+        /** CC/CV */
 
-    /* current is too high */
-    if(mppt->i_result > I_BATTERY_LIMIT) {
-        return -(mppt->delta_max * (mppt->i_result - I_BATTERY_LIMIT));
-    }
+        /* current is too high */
+        if(mppt->i_result > I_BATTERY_LIMIT) {
+            return -(mppt->delta_max * (mppt->i_result - I_BATTERY_LIMIT));
+        }
 
-    /* voltage is too high */
-    else if(mppt->v_result > get_battery_v()) {
-        return -(mppt->delta_max * (mppt->v_result - V_BATTERY_LIMIT));
-    }
+        /* voltage is too high */
+        else if(mppt->v_result > get_battery_v()) {
+            return -(mppt->delta_max * (mppt->v_result - V_BATTERY_LIMIT));
+        }
 
-    /* voltage is too low */
-    else if(mppt->v_result < V_BATTERY_MIN_LIMIT) {
-        /* turn off converter since PV voltage is too low */
-        return -(get_duty_cycle(mppt->mppt_base));  // returns value to get duty cycle to zero
+        /** MPPT */
+        if((mppt->delta_p * mppt->delta_v) > 0) {
+            return -mppt->delta_d;
+        }
+        else {
+            return mppt->delta_d;
+        }
     }
-
-    /** MPPT */
-    if((mppt->delta_p * mppt->delta_v) > 0) {
-        return -mppt->delta_d;
-    }
-    else {
-        return mppt->delta_d;
-    }
+    return 0.0;
 }
