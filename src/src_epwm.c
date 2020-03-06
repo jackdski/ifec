@@ -33,10 +33,13 @@ void initEPWMGPIO(void) {
     // Disable pull up on GPIO 0 and GPIO 2 and configure them as PWM1A and PWM2A output respectively.
     GPIO_setPadConfig(0, GPIO_PIN_TYPE_STD);
     GPIO_setPinConfig(GPIO_0_EPWM1A);       // LaunchPad pin 80
+    GPIO_setPinConfig(GPIO_1_EPWM1B);       // LaunchPad pin 79
+
 
     /* BUCK5V0_BASE - EPWM2 */
     GPIO_setPadConfig(2, GPIO_PIN_TYPE_STD);
-    GPIO_setPinConfig(GPIO_2_EPWM2A);
+    GPIO_setPinConfig(GPIO_2_EPWM2A);       // LaunchPad pin 76
+    GPIO_setPinConfig(GPIO_3_EPWM2B);       // LaunchPad pin 75
 
     /* MPPT1_BASE - EPWM3 */
     GPIO_setPadConfig(4, GPIO_PIN_TYPE_STD);

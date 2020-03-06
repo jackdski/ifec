@@ -63,10 +63,15 @@ void init_battery_output_bucks_adc(void) {
 
     // Configure SOCs of ADCA
     // Trigger Conversions initially on SW requests
-    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER0, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN0, 15);    // 3.3V Buck - LaunchPad Pin 70
-    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER1, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN1, 15);    // 5.0V Buck
-    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER2, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN2, 15);    // Battery Voltage
-    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER3, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN3, 15);    // Battery Current
+//    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER0, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN0, 15);    // 3.3V Buck - LaunchPad Pin 70
+//    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER1, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN1, 15);    // 5.0V Buck
+//    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER2, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN2, 15);    // Battery Voltage
+//    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER3, ADC_TRIGGER_SW_ONLY, ADC_CH_ADCIN3, 15);    // Battery Current
+
+    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER0, ADC_TRIGGER_CPU1_TINT1, ADC_CH_ADCIN0, 15);    // 3.3V Buck - LaunchPad Pin 70
+    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER1, ADC_TRIGGER_CPU1_TINT1, ADC_CH_ADCIN1, 15);    // 5.0V Buck
+    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER2, ADC_TRIGGER_CPU1_TINT1, ADC_CH_ADCIN2, 15);    // Battery Voltage
+    ADC_setupSOC(ADCA_BASE, ADC_SOC_NUMBER3, ADC_TRIGGER_CPU1_TINT1, ADC_CH_ADCIN3, 15);    // Battery Current
 
 
     // Set SOC interrupts. Enable the interrupts and make sure flags are cleared.
@@ -283,6 +288,7 @@ float adc_convert_to_v(uint32_t adc_result) {
  *                  I N T E R R U P T S
  **********************************************************/
 
+/** 3.3V Buck **/
 __interrupt void adc_buck_one_irq(void) {
     buck_one_result_mv = ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER0);
     buck_one_result_v = adc_convert_to_v(buck_one_result_mv);
@@ -290,6 +296,7 @@ __interrupt void adc_buck_one_irq(void) {
     Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
 }
 
+/** 5V Buck **/
 __interrupt void adc_buck_two_irq(void) {
     buck_two_result_mv = ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER1);
     buck_two_result_v = adc_convert_to_v(buck_two_result_mv);
