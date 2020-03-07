@@ -11,6 +11,7 @@ ORDERED_OBJS += \
 "./main.obj" \
 "./device/device.obj" \
 "./device/f28004x_codestartbranch.obj" \
+"./src/mppt.obj" \
 "./src/pid.obj" \
 "./src/src_adc.obj" \
 "./src/src_epwm.obj" \
@@ -164,8 +165,8 @@ ifec.hex: $(EXE_OUTPUTS)
 # Other Targets
 clean:
 	-$(RM) $(BIN_OUTPUTS__QUOTED)$(EXE_OUTPUTS__QUOTED)
-	-$(RM) "main.obj" "device/device.obj" "device/f28004x_codestartbranch.obj" "src/pid.obj" "src/src_adc.obj" "src/src_epwm.obj" "src/src_gpio.obj" "src/src_timers.obj" 
-	-$(RM) "main.d" "device/device.d" "src/pid.d" "src/src_adc.d" "src/src_epwm.d" "src/src_gpio.d" "src/src_timers.d" 
+	-$(RM) "main.obj" "device/device.obj" "device/f28004x_codestartbranch.obj" "src/mppt.obj" "src/pid.obj" "src/src_adc.obj" "src/src_epwm.obj" "src/src_gpio.obj" "src/src_timers.obj" 
+	-$(RM) "main.d" "device/device.d" "src/mppt.d" "src/pid.d" "src/src_adc.d" "src/src_epwm.d" "src/src_gpio.d" "src/src_timers.d" 
 	-$(RM) "device/f28004x_codestartbranch.d" 
 	-@echo 'Finished clean'
 	-@echo ' '

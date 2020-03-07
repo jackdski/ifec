@@ -17,9 +17,13 @@ static uint32_t cpuTimer0IntCount = 0;
 static uint32_t cpuTimer1IntCount = 0;
 static uint32_t cpuTimer2IntCount = 0;
 
-static bool light_status = 1;
-static bool direction = 1;
-static bool system_active = false;
+//static bool light_status = 1;
+//static bool direction = 1;
+//static bool system_active = false;
+
+/** control loop active variables */
+static bool pid_active = false;
+static bool mppt_active = false;
 
 
 // uint32_t period: [uS]
@@ -54,12 +58,24 @@ void init_timer(uint32_t timer_base, uint32_t period) {
     }
 }
 
-bool get_system_active(void) {
-    return system_active;
+/**********************************************************
+ *                  S E T S / G E T S
+ **********************************************************/
+
+bool get_pid_active(void) {
+    return pid_active;
 }
 
-void set_system_active(bool state) {
-    system_active = state;
+void set_pid_active(bool state) {
+    pid_active = state;
+}
+
+bool get_mppt_active(void) {
+    return mppt_active;
+}
+
+void set_mppt_active(bool state) {
+    mppt_active = state;
 }
 
 __interrupt void cpuTimer0ISR(void) {
@@ -72,24 +88,30 @@ __interrupt void cpuTimer0ISR(void) {
     CPUTimer_startTimer(CPUTIMER0_BASE);
 }
 
+/**
+ *  Sets off PID control loops
+ */
 __interrupt void cpuTimer1ISR(void) {
     cpuTimer1IntCount++;
-    GPIO_writePin(DEVICE_GPIO_PIN_LED1, light_status);  // Toggle LED
-    light_status ^= 1;
 
+#ifdef LED_BRIGHTNESS
     // change light brightness
-//    if(direction) {
-//        change_pwm_duty_cycle(get_duty_cycle() + 0.5);
-//        if(get_duty_cycle() == 20.0) direction = 0;
-//    }
-//    else {
-//        change_pwm_duty_cycle(get_duty_cycle() - 0.5);
-//        if(get_duty_cycle() == 0.0) direction = 1;
-//    }
-
-    system_active = true;
+    if(direction) {
+        change_pwm_duty_cycle(get_duty_cycle() + 0.5);
+        if(get_duty_cycle() == 20.0) direction = 0;
+    }
+    else {
+        change_pwm_duty_cycle(get_duty_cycle() - 0.5);
+        if(get_duty_cycle() == 0.0) direction = 1;
+    }
+#endif
+    pid_active = true;
 }
 
+/**
+ *  Sets off MPPT control loops
+ */
 __interrupt void cpuTimer2ISR(void) {
     cpuTimer2IntCount++;
+    mppt_active = true;
 }

@@ -5,13 +5,25 @@
  *      Author: jack
  */
 
+/**
+ * Add in code to make sure 0% duty cycle doesn't keep low-side MOSFET high
+ */
+
 #include <stdint.h>
 
 #include "src_epwm.h"
 #include "driverlib.h"
 #include "device.h"
 
-static float duty_cycle = 0;
+/**********************************************************
+ *          P R I V A T E   V A R I A B L E S
+ **********************************************************/
+
+static float epwm1_duty_cycle = 0.0;
+static float epwm2_duty_cycle = 0.0;
+static float epwm3_duty_cycle;
+static float epwm4_duty_cycle = 0.0;
+
 
 // initEPWMGPIO - Configure ePWM GPIO
 void initEPWMGPIO(void) {
@@ -21,6 +33,10 @@ void initEPWMGPIO(void) {
 
     GPIO_setPadConfig(2, GPIO_PIN_TYPE_STD);
     GPIO_setPinConfig(GPIO_2_EPWM2A);
+
+    /* MPPT1_BASE - EPWM3 */
+    GPIO_setPadConfig(4, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_4_EPWM3A);
 }
 
 // initEPWM1 - Configure ePWM1
@@ -53,16 +69,58 @@ void initEPWM1(void) {
 
 
     HRPWM_setMEPStep(EPWM1_BASE, 55);
-    HRPWM_setCounterCompareValue(EPWM1_BASE, HRPWM_COUNTER_COMPARE_A, 55);
+    HRPWM_setCounterCompareValue(EPWM1_BASE, HRPWM_COUNTER_COMPARE_A, 0);
     HRPWM_setTimeBasePeriod(EPWM1_BASE, 0x6D);
 
 
     EPWM_setTimeBasePeriod(EPWM1_BASE, PERIOD);
-    EPWM_setCounterCompareValue(EPWM1_BASE, EPWM_COUNTER_COMPARE_A, (0.5*PERIOD));
+    EPWM_setCounterCompareValue(EPWM1_BASE, EPWM_COUNTER_COMPARE_A, 0);
     EDIS;
 
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);   // Enable sync and clock to PWM
     EPWM_setTimeBaseCounter(EPWM1_BASE, 0);
+}
+
+
+void initEPWM3(void) {
+    EALLOW;
+
+    SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_EPWM3);
+    SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_HRPWM);
+    SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);  // Disable sync(Freeze clock to PWM as well)
+
+    EPWM_setActionQualifierContSWForceShadowMode(EPWM3_BASE, EPWM_AQ_SW_IMMEDIATE_LOAD);
+    EPWM_setPhaseShift(EPWM3_BASE, 0);
+
+    EPWM_setTimeBaseCounterMode(EPWM3_BASE, EPWM_COUNTER_MODE_UP);
+    EPWM_disablePhaseShiftLoad(EPWM3_BASE);
+    EPWM_setSyncOutPulseMode(EPWM3_BASE, EPWM_SYNC_OUT_PULSE_DISABLED);
+    EPWM_setClockPrescaler(EPWM3_BASE, EPWM_CLOCK_DIVIDER_1, EPWM_HSCLOCK_DIVIDER_1);
+    EPWM_setEmulationMode(EPWM3_BASE, EPWM_EMULATION_FREE_RUN);
+
+    EPWM_setCounterCompareShadowLoadMode(EPWM3_BASE, EPWM_COUNTER_COMPARE_A, EPWM_COMP_LOAD_ON_CNTR_ZERO);
+
+    EPWM_setActionQualifierAction(EPWM3_BASE, EPWM_AQ_OUTPUT_A, EPWM_AQ_OUTPUT_HIGH, EPWM_AQ_OUTPUT_ON_TIMEBASE_PERIOD);
+    EPWM_setActionQualifierAction(EPWM3_BASE, EPWM_AQ_OUTPUT_A, EPWM_AQ_OUTPUT_LOW, EPWM_AQ_OUTPUT_ON_TIMEBASE_UP_CMPA);
+
+    HRPWM_setMEPEdgeSelect(EPWM3_BASE, HRPWM_CHANNEL_A, HRPWM_MEP_CTRL_FALLING_EDGE);
+    HRPWM_setMEPControlMode(EPWM3_BASE, HRPWM_CHANNEL_A, HRPWM_MEP_DUTY_PERIOD_CTRL);
+    HRPWM_setCounterCompareShadowLoadEvent(EPWM3_BASE, HRPWM_CHANNEL_A, HRPWM_LOAD_ON_CNTR_ZERO);
+    HRPWM_disableAutoConversion(EPWM3_BASE);
+    HRPWM_disablePeriodControl(EPWM3_BASE);
+
+
+    HRPWM_setMEPStep(EPWM3_BASE, 55);
+    HRPWM_setCounterCompareValue(EPWM3_BASE, HRPWM_COUNTER_COMPARE_A, 0);
+    HRPWM_setTimeBasePeriod(EPWM3_BASE, 0x6D);
+
+
+    EPWM_setTimeBasePeriod(EPWM3_BASE, PERIOD);
+    EPWM_setCounterCompareValue(EPWM3_BASE, EPWM_COUNTER_COMPARE_A, 0);
+    EDIS;
+
+    SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);   // Enable sync and clock to PWM
+    EPWM_setTimeBaseCounter(EPWM3_BASE, 0);
 }
 
 void initEPWM(uint32_t epwm_base) {
@@ -105,33 +163,59 @@ void initEPWM(uint32_t epwm_base) {
 
 
     HRPWM_setMEPStep(epwm_base, 55);
-    HRPWM_setCounterCompareValue(epwm_base, HRPWM_COUNTER_COMPARE_A, 55);
+    HRPWM_setCounterCompareValue(epwm_base, HRPWM_COUNTER_COMPARE_A, 0);
     HRPWM_setTimeBasePeriod(epwm_base, 100);
 
 
     EPWM_setTimeBasePeriod(epwm_base, PERIOD);
-    EPWM_setCounterCompareValue(epwm_base, EPWM_COUNTER_COMPARE_A, (0.5*PERIOD));
+//    EPWM_setCounterCompareValue(epwm_base, EPWM_COUNTER_COMPARE_A, 0);
     EDIS;
 
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);   // Enable sync and clock to PWM
     EPWM_setTimeBaseCounter(epwm_base, 0);
 }
 
-
-void change_pwm_duty_cycle(float dc) {
+void change_pwm_duty_cycle(uint32_t epwm_base, float dc) {
+//    float dc_new;
+    uint32_t new_dc = 0;
     // add in 0-100 check here
-    if(dc < 0.0 || dc > 100.0) {
-        return;
+    if(dc < 0.0) {
+//        new_dc = 0;
+        dc = 0.0;
     }
-    uint16_t dc_integer = (int)(dc);
-    uint16_t dc_fraction = (int)((dc - dc_integer) * 100);
-    duty_cycle = dc;
-    HRPWM_setCounterCompareValue(EPWM1_BASE, HRPWM_COUNTER_COMPARE_A, dc_fraction);
-    EPWM_setCounterCompareValue(EPWM1_BASE, EPWM_COUNTER_COMPARE_A, (dc_integer*PERIOD) / 100);
+    else if(dc > 90.0) {
+//        new_dc = 90.0;
+        dc = 90.0;
+    }
+
+    switch(epwm_base) {
+        case(EPWM1_BASE): epwm1_duty_cycle = dc; break;
+        case(EPWM2_BASE): epwm2_duty_cycle = dc; break;
+        case(EPWM3_BASE): epwm3_duty_cycle = dc; break;
+        case(EPWM4_BASE): epwm4_duty_cycle = dc; break;
+    }
+
+    new_dc = (uint32_t)(((dc * PERIOD)/ 100.0) * 256.0);
+    HRPWM_setCounterCompareValue(epwm_base, HRPWM_COUNTER_COMPARE_A, new_dc);
+//    HRPWM_setCounterCompareValue(epwm_base, HRPWM_COUNTER_COMPARE_A, ((303 << 8) | 5700));
+    //    EPWM_setCounterCompareValue(EPWM1_BASE, EPWM_COUNTER_COMPARE_A, (dc_integer*PERIOD) / 100);
 //    EALLOW;
 //    EDIS;
 }
 
-float get_duty_cycle(void) {
-    return duty_cycle;
+/**
+ * @brief Returns the current duty cycle of an ePWM module
+ *
+ * @param epwm_base The base address of an ePWM module
+ * @return Float with the duty cycle of the ePWM module specified. Returns
+ *      -1.0 if the ePWM module specified is not in use or does not exist.
+ */
+float get_duty_cycle(uint32_t epwm_base) {
+    switch(epwm_base) {
+        case(EPWM1_BASE): return epwm1_duty_cycle;
+        case(EPWM2_BASE): return epwm2_duty_cycle;
+        case(EPWM3_BASE): return epwm3_duty_cycle;
+        case(EPWM4_BASE): return epwm4_duty_cycle;
+        default: return -1.0;  // for ePWM modules not used
+    }
 }
