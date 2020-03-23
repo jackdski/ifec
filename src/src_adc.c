@@ -182,4 +182,3 @@ __interrupt void adc_mppt_one_i_irq(void) {
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER4);
     Interrupt_clearACKGroup(0xFFF);
 }
-

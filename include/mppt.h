@@ -30,7 +30,7 @@ typedef struct {
     float delta_d;      // change in duty cycle
     float delta_max;    // change in duty cycle to be used with CC/CV
     uint32_t mppt_base; // MPPT instance identifier
-//    bool suspended;     // for when PV voltage is too low
+    bool suspended;     // for when PV voltage is too low
     float suspended_v;  // [V] when PV was suspended
 }MPPT_t;
 
@@ -38,6 +38,5 @@ typedef struct {
 void mppt_init(MPPT_t * mppt, uint32_t mppt_base, float delta_d, float delta_max);
 void mppt_update_values(MPPT_t * mppt);
 float mppt_calculate(MPPT_t * mppt);
-
 
 #endif /* INCLUDE_MPPT_H_ */
