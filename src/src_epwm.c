@@ -28,15 +28,30 @@ static float epwm4_duty_cycle = 0.0;
 // initEPWMGPIO - Configure ePWM GPIO
 void initEPWMGPIO(void) {
     // Disable pull up on GPIO 0 and GPIO 2 and configure them as PWM1A and PWM2A output respectively.
-    GPIO_setPadConfig(0, GPIO_PIN_TYPE_STD);
-    GPIO_setPinConfig(GPIO_0_EPWM1A);       // LaunchPad pin 80
 
+    /* 3V3 Buck - EPWM1 */
+    GPIO_setPadConfig(0, GPIO_PIN_TYPE_STD);
+    GPIO_setPadConfig(1, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_0_EPWM1A);       // LaunchPad pin 80
+    GPIO_setPinConfig(GPIO_1_EPWM1B);       // LaunchPad pin 79
+
+    /* 5V Buck - EPWM2 */
     GPIO_setPadConfig(2, GPIO_PIN_TYPE_STD);
-    GPIO_setPinConfig(GPIO_2_EPWM2A);
+    GPIO_setPadConfig(3, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_2_EPWM2A);       // LaunchPad pin 76
+    GPIO_setPinConfig(GPIO_3_EPWM2B);       // LaunchPad pin 75
 
     /* MPPT1_BASE - EPWM3 */
     GPIO_setPadConfig(4, GPIO_PIN_TYPE_STD);
-    GPIO_setPinConfig(GPIO_4_EPWM3A);
+    GPIO_setPadConfig(5, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_4_EPWM3A);       // LaunchPad pin 36
+    GPIO_setPinConfig(GPIO_5_EPWM3B);       // LaunchPad pin 35
+
+    /* MPPT2_BASE - EPWM4 */
+    GPIO_setPadConfig(6, GPIO_PIN_TYPE_STD);
+    GPIO_setPadConfig(7, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_6_EPWM4A);       // LaunchPad pin 78
+    GPIO_setPinConfig(GPIO_7_EPWM4B);       // LaunchPad pin 77
 }
 
 // initEPWM1 - Configure ePWM1
@@ -67,7 +82,27 @@ void initEPWM1(void) {
     HRPWM_disableAutoConversion(EPWM1_BASE);
     HRPWM_disablePeriodControl(EPWM1_BASE);
 
+    // Dead Band
+    EPWM_setDeadBandCounterClock(EPWM1_BASE, EPWM_DB_COUNTER_CLOCK_FULL_CYCLE);
+    EPWM_setRisingEdgeDeadBandDelayInput(EPWM1_BASE, EPWM_DB_INPUT_EPWMA);
 
+    HRPWM_setDeadbandMEPEdgeSelect(EPWM1_BASE, HRPWM_DB_MEP_CTRL_RED_FED);
+    HRPWM_setRisingEdgeDelayLoadMode(EPWM1_BASE, HRPWM_LOAD_ON_CNTR_ZERO_PERIOD);
+    HRPWM_setFallingEdgeDelayLoadMode(EPWM1_BASE, HRPWM_LOAD_ON_CNTR_ZERO_PERIOD);
+
+    EPWM_setDeadBandOutputSwapMode(EPWM1_BASE, EPWM_DB_OUTPUT_A, true);
+    EPWM_setDeadBandDelayMode(EPWM1_BASE, EPWM_DB_FED, true);
+
+    EPWM_setDeadBandDelayPolarity(EPWM1_BASE, EPWM_DB_FED, EPWM_DB_POLARITY_ACTIVE_HIGH);
+
+    EPWM_setDeadBandCounterClock(EPWM1_BASE, EPWM_DB_COUNTER_CLOCK_HALF_CYCLE);
+    EPWM_setRisingEdgeDelayCount(EPWM1_BASE, 0x2000);
+    EPWM_setFallingEdgeDelayCount(EPWM1_BASE, 0x2000);
+
+    // Invert ePWMxA signal
+    HRPWM_setChannelBOutputPath(EPWM1_BASE, HRPWM_OUTPUT_ON_B_INV_A);    // ePWMxB is inverse of ePWMxA
+
+    // initialize PWM period
     HRPWM_setMEPStep(EPWM1_BASE, 55);
     HRPWM_setCounterCompareValue(EPWM1_BASE, HRPWM_COUNTER_COMPARE_A, 0);
     HRPWM_setTimeBasePeriod(EPWM1_BASE, 0x6D);
@@ -138,6 +173,9 @@ void initEPWM(uint32_t epwm_base) {
         case(EPWM8_BASE): SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_EPWM8); break;
     }
 
+    EALLOW;
+
+    SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_EPWM1);
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_HRPWM);
     SysCtl_disablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);  // Disable sync(Freeze clock to PWM as well)
 
@@ -161,14 +199,34 @@ void initEPWM(uint32_t epwm_base) {
     HRPWM_disableAutoConversion(epwm_base);
     HRPWM_disablePeriodControl(epwm_base);
 
+    // Dead Band
+    EPWM_setDeadBandCounterClock(epwm_base, EPWM_DB_COUNTER_CLOCK_FULL_CYCLE);
+    EPWM_setRisingEdgeDeadBandDelayInput(epwm_base, EPWM_DB_INPUT_EPWMA);
 
+    HRPWM_setDeadbandMEPEdgeSelect(epwm_base, HRPWM_DB_MEP_CTRL_RED_FED);
+    HRPWM_setRisingEdgeDelayLoadMode(epwm_base, HRPWM_LOAD_ON_CNTR_ZERO_PERIOD);
+    HRPWM_setFallingEdgeDelayLoadMode(epwm_base, HRPWM_LOAD_ON_CNTR_ZERO_PERIOD);
+
+    EPWM_setDeadBandOutputSwapMode(epwm_base, EPWM_DB_OUTPUT_A, true);
+    EPWM_setDeadBandDelayMode(epwm_base, EPWM_DB_FED, true);
+
+    EPWM_setDeadBandDelayPolarity(epwm_base, EPWM_DB_FED, EPWM_DB_POLARITY_ACTIVE_HIGH);
+
+    EPWM_setDeadBandCounterClock(epwm_base, EPWM_DB_COUNTER_CLOCK_HALF_CYCLE);
+    EPWM_setRisingEdgeDelayCount(epwm_base, 0x2000);
+    EPWM_setFallingEdgeDelayCount(epwm_base, 0x2000);
+
+    // Invert ePWMxA signal
+    HRPWM_setChannelBOutputPath(epwm_base, HRPWM_OUTPUT_ON_B_INV_A);    // ePWMxB is inverse of ePWMxA
+
+    // initialize PWM period
     HRPWM_setMEPStep(epwm_base, 55);
     HRPWM_setCounterCompareValue(epwm_base, HRPWM_COUNTER_COMPARE_A, 0);
-    HRPWM_setTimeBasePeriod(epwm_base, 100);
+    HRPWM_setTimeBasePeriod(epwm_base, 0x6D);
 
 
     EPWM_setTimeBasePeriod(epwm_base, PERIOD);
-//    EPWM_setCounterCompareValue(epwm_base, EPWM_COUNTER_COMPARE_A, 0);
+    EPWM_setCounterCompareValue(epwm_base, EPWM_COUNTER_COMPARE_A, 0);
     EDIS;
 
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);   // Enable sync and clock to PWM
