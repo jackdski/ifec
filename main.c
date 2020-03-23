@@ -23,16 +23,16 @@
 
 /** Test Selection **/
 //#define NORMAL_OPERATION
-//#define TEST_OUTPUT_BUCKS
+#define TEST_OUTPUT_BUCKS
 //#define TEST_OUTPUT_BUCKS_OPEN_LOOP
-#define TEST_MPPT_BUCKS
+//#define TEST_MPPT_BUCKS
 
 //#define USE_PID
 
-#define TIMER_1MS   250
-#define TIMER_500US 500
-#define TIMER_10MS  10000
-#define TIMER_500MS 500000
+#define TIMER_250US     250
+#define TIMER_500US     500
+#define TIMER_10MS      10000
+#define TIMER_500MS     500000
 
 
 uint16_t status;
@@ -52,8 +52,8 @@ void main(void) {
     Device_initGPIO();
 
     // PID
-    // PID_init(&buck_one_pid, 3.2, 2.1, 2.3, 2.00, 10); // 10ms intervals, bucks 5V to 2.00V with 1k and 1k voltage divider
-    PID_init(&buck_one_pid, 3.2, 2.1, 2.3, 1.54, 1); // 10ms intervals, bucks 8V to 5V with 1k and 330ohm voltage divider
+    PID_init(&buck_one_pid, 3.2, 2.1, 2.3, 1.20, 1); // 10ms intervals, bucks ~20V to 12V with 1k and 330ohm voltage divider
+    PID_init(&buck_two_pid, 3.2, 2.1, 2.3, 1.20, 1); // 10ms intervals, bucks ~20V to 12V with 1k and 330ohm voltage divider
 
     // MPPT
     mppt_init(&mppt_one, MPPT1_BASE, 0.1, 5.0);
@@ -70,7 +70,7 @@ void main(void) {
     Interrupt_register(INT_ADCA4, &adc_mppt_one_i_irq);
 
 //    Interrupt_register(INT_TIMER0, &cpuTimer0ISR);
-//    Interrupt_register(INT_TIMER1, &cpuTimer1ISR);
+    Interrupt_register(INT_TIMER1, &cpuTimer1ISR);
     Interrupt_register(INT_TIMER2, &cpuTimer2ISR);
 
 
@@ -78,42 +78,39 @@ void main(void) {
     init_led5();
     init_adc();
     initEPWMGPIO();
-    initEPWM1();
 
-    change_pwm_duty_cycle(BUCK3V3_BASE, 0.0);
+    initEPWM(BUCK3V3_BASE);
     initEPWM(BUCK5V0_BASE);
+    change_pwm_duty_cycle(BUCK3V3_BASE, 0.0);
     change_pwm_duty_cycle(BUCK5V0_BASE, 0.0);
-//    initEPWM(MPPT1_BASE);
-    initEPWM3();
+
+    initEPWM(MPPT1_BASE);
+    initEPWM(MPPT2_BASE);
     change_pwm_duty_cycle(MPPT1_BASE, 0.0);
-//    initEPWM(MPPT2_BASE);
-//    change_pwm_duty_cycle(MPPT2_BASE, 0.0);
+    change_pwm_duty_cycle(MPPT2_BASE, 0.0);
 
 //    init_timer(CPUTIMER0_BASE, 500000);
 //    init_timer(CPUTIMER1_BASE, TIMER_500MS);
-//    init_timer(CPUTIMER1_BASE, TIMER_1MS);
+    init_timer(CPUTIMER1_BASE, TIMER_250US);
     init_timer(CPUTIMER2_BASE, TIMER_500US);
 
 
     // Enable interrupts
-//    Interrupt_enable(INT_EPWM1);
     Interrupt_enable(INT_ADCA1);
     Interrupt_enable(INT_ADCA2);
     Interrupt_enable(INT_ADCA3);
     Interrupt_enable(INT_ADCA4);
     //    Interrupt_enable(INT_TIMER0);
-//    Interrupt_enable(INT_TIMER1);
+    Interrupt_enable(INT_TIMER1);
     Interrupt_enable(INT_TIMER2);
 
 //    CPUTimer_startTimer(CPUTIMER0_BASE);
-//    CPUTimer_startTimer(CPUTIMER1_BASE);
+    CPUTimer_startTimer(CPUTIMER1_BASE);
     CPUTimer_startTimer(CPUTIMER2_BASE);
 
     // Enable Global Interrupt (INTM) and realtime interrupt (DBGM)
     EINT;
     ERTM;
-
-//    change_pwm_duty_cycle(25.0);
 
     // Loop Forever
     for(;;) {
@@ -156,7 +153,6 @@ void main(void) {
             }
 
             set_mppt_active(false);
-            toggle_led();
         }
         else if ((get_pid_active() == false) && (get_mppt_active() == false)) {  // if everything is ready to go
             IDLE;   // go to low-power mode until TIMER1 wakes up CPU
@@ -165,9 +161,8 @@ void main(void) {
 #ifdef TEST_OUTPUT_BUCKS
         if(get_pid_active() == true) {
             change_pwm_duty_cycle(BUCK3V3_BASE, PID_calculate(&buck_one_pid, get_buck_v(BUCK3V3_BASE)));
-//            change_pwm_duty_cycle(BUCK5V0_BASE, PID_calculate(&buck_two_pid, get_buck_v(BUCK5V0_BASE)));
+            change_pwm_duty_cycle(BUCK5V0_BASE, PID_calculate(&buck_two_pid, get_buck_v(BUCK5V0_BASE)));
             set_pid_active(false);
-            toggle_led();
         }
         else if (get_pid_active() == false) {  // if everything is ready to go
             IDLE;   // go to low-power mode until TIMER1 wakes up CPU
@@ -177,13 +172,12 @@ void main(void) {
         if(get_mppt_active() == true) {
             // Update values
             mppt_update_values(&mppt_one);
-//            mppt_update_values(&mppt_two);
+            mppt_update_values(&mppt_two);
 
             // change duty cycle accordingly
             change_pwm_duty_cycle(mppt_one.mppt_base, (get_duty_cycle(mppt_one.mppt_base) + mppt_calculate(&mppt_one)));
-//            change_pwm_duty_cycle(mppt_two.mppt_base, (get_duty_cycle(mppt_two.mppt_base) + mppt_calculate(&mppt_two)));
+            change_pwm_duty_cycle(mppt_two.mppt_base, (get_duty_cycle(mppt_two.mppt_base) + mppt_calculate(&mppt_two)));
             set_mppt_active(false);
-//            toggle_led();
         }
         else if (get_mppt_active() == false) {  // if everything is ready to go
             IDLE;   // go to low-power mode until TIMER1 wakes up CPU
