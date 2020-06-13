@@ -13,10 +13,6 @@
 #include "driverlib.h"
 #include "device.h"
 
-static uint32_t cpuTimer0IntCount = 0;
-static uint32_t cpuTimer1IntCount = 0;
-static uint32_t cpuTimer2IntCount = 0;
-
 //static bool light_status = 1;
 //static bool direction = 1;
 //static bool system_active = false;
@@ -46,16 +42,6 @@ void init_timer(uint32_t timer_base, uint32_t period) {
     CPUTimer_reloadTimerCounter(timer_base);
     CPUTimer_setEmulationMode(timer_base, CPUTIMER_EMULATIONMODE_RUNFREE);
     CPUTimer_enableInterrupt(timer_base);
-
-    if (timer_base == CPUTIMER0_BASE) {
-        cpuTimer0IntCount = 0;
-    }
-    else if(timer_base == CPUTIMER1_BASE) {
-        cpuTimer1IntCount = 0;
-    }
-    else if(timer_base == CPUTIMER2_BASE) {
-        cpuTimer2IntCount = 0;
-    }
 }
 
 /**********************************************************
@@ -79,9 +65,7 @@ void set_mppt_active(bool state) {
 }
 
 __interrupt void cpuTimer0ISR(void) {
-    cpuTimer0IntCount++;
     CPUTimer_reloadTimerCounter(CPUTIMER0_BASE);
-
 
     // Acknowledge this interrupt to receive more interrupts from group 1
     Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
@@ -91,9 +75,7 @@ __interrupt void cpuTimer0ISR(void) {
 /**
  *  Sets off PID control loops
  */
-__interrupt void cpuTimer1ISR(void) {
-    cpuTimer1IntCount++;
-
+__interrupt void PID_Timer_ISR(void) {
 #ifdef LED_BRIGHTNESS
     // change light brightness
     if(direction) {
@@ -111,7 +93,6 @@ __interrupt void cpuTimer1ISR(void) {
 /**
  *  Sets off MPPT control loops
  */
-__interrupt void cpuTimer2ISR(void) {
-    cpuTimer2IntCount++;
+__interrupt void MPPT_Timer_ISR(void) {
     mppt_active = true;
 }

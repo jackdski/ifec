@@ -10,14 +10,14 @@
 
 #include <stdint.h>
 
-#define ADC_MAX_VALUE       4095    // 12-bit
-#define ADC_MAX_VALUE_F     4095.0  // 12-bit floating point
+#define ADC_MAX_VALUE       4095U   // 12-bit
+#define ADC_MAX_VALUE_F     4095.0f // 12-bit floating point
 #define VREF_MV             3300U   // 3.3V in millivolts
-#define VREF_MV_F           3.3     // 3.3V
+#define VREF_MV_F           3.3f    // 3.3V
 
-#define VREFHI_V            3.3     // 3.3V
-#define MPPT_SHUNT_R        0.1     // 100mOhms
-#define BATTERY_IN_SHUNT_R  0.1     // 100mOhms
+#define VREFHI_V            3.3f    // 3.3V
+#define MPPT_SHUNT_R        0.1f    // 100mOhms
+#define BATTERY_IN_SHUNT_R  0.1f    // 100mOhms
 
 void init_adc();
 
@@ -40,8 +40,8 @@ float get_battery_v(void);
 float get_battery_i(void);
 
 /***    I N T E R R U P T S    ***/
-__interrupt void adc_buck_one_irq(void);
-__interrupt void adc_buck_two_irq(void);
+__interrupt void adc_buck_5V_irq(void);
+__interrupt void adc_buck_3V3_irq(void);
 __interrupt void adc_mppt_one_v_irq(void);
 __interrupt void adc_mppt_one_i_irq(void);
 __interrupt void adc_mppt_two_v_irq(void);

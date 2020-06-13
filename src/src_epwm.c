@@ -10,7 +10,7 @@
  */
 
 #include <stdint.h>
-
+#include "config.h"
 #include "src_epwm.h"
 #include "driverlib.h"
 #include "device.h"
@@ -19,39 +19,43 @@
  *          P R I V A T E   V A R I A B L E S
  **********************************************************/
 
-static float epwm1_duty_cycle = 0.0;
-static float epwm2_duty_cycle = 0.0;
+static float epwm1_duty_cycle;
+static float epwm2_duty_cycle;
 static float epwm3_duty_cycle;
-static float epwm4_duty_cycle = 0.0;
+static float epwm4_duty_cycle;
+static float epwm5_duty_cycle;
+static float epwm6_duty_cycle;
+static float epwm7_duty_cycle;
+static float epwm8_duty_cycle;
 
 
 // initEPWMGPIO - Configure ePWM GPIO
 void initEPWMGPIO(void) {
-    // Disable pull up on GPIO 0 and GPIO 2 and configure them as PWM1A and PWM2A output respectively.
+//     Disable pull up on GPIO 0 and GPIO 2 and configure them as PWM1A and PWM2A output respectively.
 
-    /* 3V3 Buck - EPWM1 */
-    GPIO_setPadConfig(0, GPIO_PIN_TYPE_STD);
-    GPIO_setPadConfig(1, GPIO_PIN_TYPE_STD);
-    GPIO_setPinConfig(GPIO_0_EPWM1A);       // LaunchPad pin 80
-    GPIO_setPinConfig(GPIO_1_EPWM1B);       // LaunchPad pin 79
+//    /* 5V Buck */
+    GPIO_setPadConfig(BUCK_5V_HI_PWM, GPIO_PIN_TYPE_STD);
+    GPIO_setPadConfig(BUCK_5V_LI_PWM, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_14_EPWM8A);
+    GPIO_setPinConfig(GPIO_15_EPWM8B);
 
-    /* 5V Buck - EPWM2 */
-    GPIO_setPadConfig(2, GPIO_PIN_TYPE_STD);
-    GPIO_setPadConfig(3, GPIO_PIN_TYPE_STD);
-    GPIO_setPinConfig(GPIO_2_EPWM2A);       // LaunchPad pin 76
-    GPIO_setPinConfig(GPIO_3_EPWM2B);       // LaunchPad pin 75
+    /* 3V3 Buck */
+    GPIO_setPadConfig(BUCK_3V3_HI_PWM, GPIO_PIN_TYPE_STD);
+    GPIO_setPadConfig(BUCK_3V3_LI_PWM, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_0_EPWM1A);
+    GPIO_setPinConfig(GPIO_1_EPWM1B);
 
-    /* MPPT1_BASE - EPWM3 */
-    GPIO_setPadConfig(4, GPIO_PIN_TYPE_STD);
-    GPIO_setPadConfig(5, GPIO_PIN_TYPE_STD);
-    GPIO_setPinConfig(GPIO_4_EPWM3A);       // LaunchPad pin 36
-    GPIO_setPinConfig(GPIO_5_EPWM3B);       // LaunchPad pin 35
+    /* MPPT1 */
+    GPIO_setPadConfig(MPPT_1_HI_PWM, GPIO_PIN_TYPE_STD);
+    GPIO_setPadConfig(MPPT_1_LI_PWM, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_0_EPWM1A);
+    GPIO_setPinConfig(GPIO_1_EPWM1B);
 
-    /* MPPT2_BASE - EPWM4 */
-    GPIO_setPadConfig(6, GPIO_PIN_TYPE_STD);
-    GPIO_setPadConfig(7, GPIO_PIN_TYPE_STD);
-    GPIO_setPinConfig(GPIO_6_EPWM4A);       // LaunchPad pin 78
-    GPIO_setPinConfig(GPIO_7_EPWM4B);       // LaunchPad pin 77
+    /* MPPT2 */
+    GPIO_setPadConfig(MPPT_2_HI_PWM, GPIO_PIN_TYPE_STD);
+    GPIO_setPadConfig(MPPT_2_LI_PWM, GPIO_PIN_TYPE_STD);
+    GPIO_setPinConfig(GPIO_2_EPWM2A);
+    GPIO_setPinConfig(GPIO_3_EPWM2B);
 }
 
 // initEPWM1 - Configure ePWM1
@@ -231,6 +235,9 @@ void initEPWM(uint32_t epwm_base) {
 
     SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TBCLKSYNC);   // Enable sync and clock to PWM
     EPWM_setTimeBaseCounter(epwm_base, 0);
+
+    // initialize to 0% Duty-Cycle
+    change_pwm_duty_cycle(epwm_base, 0.0);
 }
 
 void change_pwm_duty_cycle(uint32_t epwm_base, float dc) {
@@ -251,6 +258,17 @@ void change_pwm_duty_cycle(uint32_t epwm_base, float dc) {
         case(EPWM2_BASE): epwm2_duty_cycle = dc; break;
         case(EPWM3_BASE): epwm3_duty_cycle = dc; break;
         case(EPWM4_BASE): epwm4_duty_cycle = dc; break;
+        case(EPWM5_BASE): epwm5_duty_cycle = dc; break;
+        case(EPWM6_BASE): epwm6_duty_cycle = dc; break;
+        case(EPWM7_BASE): epwm7_duty_cycle = dc; break;
+        case(EPWM8_BASE): epwm8_duty_cycle = dc; break;
+    }
+
+    if(dc == 0.0) {
+        HRPWM_setChannelBOutputPath(epwm_base, HRPWM_OUTPUT_ON_B_NORMAL);
+    }
+    else {
+        HRPWM_setChannelBOutputPath(epwm_base, HRPWM_OUTPUT_ON_B_INV_A);
     }
 
     new_dc = (uint32_t)(((dc * PERIOD)/ 100.0) * 256.0);
@@ -274,6 +292,10 @@ float get_duty_cycle(uint32_t epwm_base) {
         case(EPWM2_BASE): return epwm2_duty_cycle;
         case(EPWM3_BASE): return epwm3_duty_cycle;
         case(EPWM4_BASE): return epwm4_duty_cycle;
+        case(EPWM5_BASE): return epwm5_duty_cycle;
+        case(EPWM6_BASE): return epwm6_duty_cycle;
+        case(EPWM7_BASE): return epwm7_duty_cycle;
+        case(EPWM8_BASE): return epwm8_duty_cycle;
         default: return -1.0;  // for ePWM modules not used
     }
 }

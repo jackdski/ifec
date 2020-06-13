@@ -7,7 +7,7 @@
 
 #include "pid.h"
 
-void PID_init(PID_t * pid, float Kp, float Ki, float Kd, float ref, float iteration_time) {
+void PID_init(PID_t * pid, float Kp, float Ki, float Kd, float ref, uint32_t iteration_time) {
     pid->Kp = Kp;
     pid->Ki = Ki;
     pid->Kd = Kd;

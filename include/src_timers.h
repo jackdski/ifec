@@ -27,7 +27,7 @@ void set_mppt_active(bool state);
 
 /***    I N T E R R U P T S    ***/
 __interrupt void cpuTimer0ISR(void);
-__interrupt void cpuTimer1ISR(void);
-__interrupt void cpuTimer2ISR(void);
+__interrupt void PID_Timer_ISR(void);
+__interrupt void MPPT_Timer_ISR(void);
 
 #endif /* INCLUDE_SRC_TIMERS_H_ */

@@ -28,7 +28,6 @@
  *
  **************************************************/
 void mppt_init(MPPT_t * mppt, uint32_t mppt_base, float delta_d, float delta_max) {
-    mppt->mppt_base = mppt_base;
 //    mppt->suspended = false;
     mppt->delta_d = delta_d;
     mppt->delta_max = delta_max;
