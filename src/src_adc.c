@@ -8,6 +8,9 @@
 #include "src_adc.h"
 #include "config.h"
 
+
+bool mppt_adc_evts[MPPT_ADC_EVT_COUNT] = {0};
+
 /** Bucks */
 static float buck_5V_v;
 static float buck_5V_stepped_down_v;
@@ -168,6 +171,21 @@ float get_battery_i(void) {
     return battery_i;
 }
 
+bool is_mppt_adc_done(void) {
+    uint16_t i;
+    for(i = 0; i < MPPT_ADC_EVT_COUNT; i++) {
+        if(mppt_adc_evts[i] != true) {
+            return false;
+        }
+    }
+
+    // reset array
+    for(i = 0; i < MPPT_ADC_EVT_COUNT; i++) {
+        mppt_adc_evts[i] = false;
+    }
+    return true;
+}
+
 /**********************************************************
  *                  C O N V E R S I O N S
  **********************************************************/
@@ -224,6 +242,9 @@ __interrupt void adc_mppt_one_v_irq(void) {
     mppt_one_mv = ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER2);
     mppt_one_stepped_down_v = adc_convert_to_v(mppt_one_mv);
     mppt_one_v = VOLTAGE_UNDIVIDER(mppt_one_stepped_down_v, V_PV_SENSE_R1, V_PV_SENSE_R2);
+
+    mppt_adc_evts[MPPT_ONE_V_ADC_EVT] = true;
+
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER3);
 //    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
     Interrupt_clearACKGroup(0xFFF);
@@ -233,6 +254,9 @@ __interrupt void adc_mppt_one_i_irq(void) {
     uint16_t adc_result = ADC_readResult(ADCARESULT_BASE, ADC_SOC_NUMBER3);
     float adc_v = adc_convert_to_v(adc_result);
     mppt_one_i = I_SENSED(adc_v);
+
+    mppt_adc_evts[MPPT_ONE_I_ADC_EVT] = true;
+
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER4);
     Interrupt_clearACKGroup(0xFFF);
 }
@@ -242,6 +266,9 @@ __interrupt void adc_mppt_two_v_irq(void) {
     mppt_two_mv = ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER0);
     mppt_two_stepped_down_v = adc_convert_to_v(mppt_two_mv);
     mppt_two_v = VOLTAGE_UNDIVIDER(mppt_two_stepped_down_v, V_PV_SENSE_R1, V_PV_SENSE_R2);
+
+    mppt_adc_evts[MPPT_TWO_V_ADC_EVT] = true;
+
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER1);
 //    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
     Interrupt_clearACKGroup(0xFFF);
@@ -251,6 +278,9 @@ __interrupt void adc_mppt_two_i_irq(void) {
     uint16_t adc_result = ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER1);
     float adc_v = adc_convert_to_v(adc_result);
     mppt_two_i = I_SENSED(adc_v);
+
+    mppt_adc_evts[MPPT_TWO_I_ADC_EVT] = true;
+
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER2);
     Interrupt_clearACKGroup(0xFFF);
 }
@@ -263,6 +293,9 @@ __interrupt void adc_battery_v_irq(void) {
     // Apply voltage divider conversion
     battery_stepped_down_v = adc_convert_to_v(battery_result_mv);
     battery_v = VOLTAGE_UNDIVIDER(battery_stepped_down_v, V_BATT_SENSE_R1, V_BATT_SENSE_R2);
+
+    mppt_adc_evts[MPPT_BATT_V_ADC_EVT] = true;
+
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER3);
 //    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
     Interrupt_clearACKGroup(0xFFF);
@@ -272,6 +305,9 @@ __interrupt void adc_battery_i_irq(void) {
     uint16_t adc_result = ADC_readResult(ADCBRESULT_BASE, ADC_SOC_NUMBER3);
     float adc_v = adc_convert_to_v(adc_result);
     battery_i = I_SENSED(adc_v);
+
+    mppt_adc_evts[MPPT_BATT_I_ADC_EVT] = true;
+
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER4);
 //    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
     Interrupt_clearACKGroup(0xFFF);

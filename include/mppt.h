@@ -11,10 +11,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define V_BATTERY_LIMIT     7.95    // [V]
-#define V_BATTERY_MIN_LIMIT 6.0     // [V]
-#define I_BATTERY_LIMIT     3000.0  // [mA]
-
 #define PV_HYSTERISIS       3.00    // [V]
 
 typedef struct {

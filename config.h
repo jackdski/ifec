@@ -12,6 +12,7 @@
 #include "device.h"
 #include <stdint.h>
 
+
 /** TIMER CONSTANTS **/
 #define TIMER_10US              10U         // 100kHz
 #define TIMER_50US              50U         // 20kHz
@@ -19,6 +20,14 @@
 #define TIMER_500US             500U        // 2kHz
 #define TIMER_10MS              10000U      // 100Hz
 #define TIMER_500MS             500000U     // 2Hz
+
+
+/** BATTERY CONSTANTS **/
+#define V_BATTERY_MAX_LIMIT     7.95f       // [V]
+#define V_BATTERY_CHG_LIMIT     8.2f        // [V]
+#define V_BATTERY_MIN_LIMIT     6.0f        // [V]
+#define I_BATTERY_MAX_LIMIT     3.00f       // [A]
+#define I_BATTERY_MIN_LIMIT     (0.05 * I_BATTERY_MAX_LIMIT)  // [A]
 
 /** TIMER CONFIG **/
 #define PID_TIMER               CPUTIMER1_BASE

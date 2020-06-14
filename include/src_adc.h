@@ -9,6 +9,15 @@
 #define INCLUDE_SRC_ADC_H_
 
 #include <stdint.h>
+#include <stdbool.h>
+
+#define MPPT_ADC_EVT_COUNT  6
+#define MPPT_ONE_V_ADC_EVT  5
+#define MPPT_ONE_I_ADC_EVT  4
+#define MPPT_TWO_V_ADC_EVT  3
+#define MPPT_TWO_I_ADC_EVT  2
+#define MPPT_BATT_V_ADC_EVT 1
+#define MPPT_BATT_I_ADC_EVT 0
 
 #define ADC_MAX_VALUE       4095U   // 12-bit
 #define ADC_MAX_VALUE_F     4095.0f // 12-bit floating point
@@ -27,6 +36,7 @@ float get_mppt_v(uint32_t mppt_base);
 float get_mppt_i(uint32_t mppt_base);
 float get_battery_v(void);
 float get_battery_i(void);
+bool is_mppt_adc_done(void);
 
 /***    C O N V E R S I O N S   ***/
 uint32_t adc_convert_to_mv(uint32_t adc_result);

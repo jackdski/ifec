@@ -11,8 +11,9 @@
 #include <stdbool.h>
 #include "config.h"
 
-//#include "driverlib.h"
-//#include "device.h"
+#include "driverlib.h"
+#include "device.h"
+#include "battery.h"
 #include "src_adc.h"
 #include "src_epwm.h"
 #include "src_gpio.h"
@@ -28,20 +29,19 @@
  *      TEST_OUTPUT_BUCKS_OPEN_LOOP
  *      TEST_MPPT_BUCKS
  **/
-#define NORMAL_OPERATION 1
+#define NORMAL_OPERATION
+#define USE_WATCHDOG
+#define USE_CC_CV
 
-
-uint16_t status;
 
 /** Global Variables */
-uint16_t status;
+Battery_t battery;
 PID_t five_volt_buck_pid;
 PID_t three_volt_buck_pid;
 MPPT_t mppt_one;
 MPPT_t mppt_two;
 
 
-// main
 void main(void) {
     // Initialize device clock and peripherals
     Device_init();
@@ -54,6 +54,9 @@ void main(void) {
     // MPPT
     mppt_init(&mppt_one, MPPT_ONE_ID, MPPT_1_DELTA_DC, MPPT_1_DELTA_DC_MAX);
     mppt_init(&mppt_two, MPPT_TWO_ID, MPPT_2_DELTA_DC, MPPT_2_DELTA_DC_MAX);
+
+    // Battery
+    init_battery(&battery);
 
     // Initialize PIE and clear PIE registers. Disables CPU interrupts.
     Interrupt_initModule();
@@ -94,9 +97,26 @@ void main(void) {
     EINT;
     ERTM;
 
+#ifdef USE_WATCHDOG
+    // Watchdog will trigger after 1.3ms of inactivity
+    SysCtl_setWatchdogMode(SYSCTL_WD_MODE_RESET);
+    SysCtl_setWatchdogPredivider(SYSCTL_WD_PREDIV_4096);
+    SysCtl_setWatchdogPrescaler(SYSCTL_WD_PRESCALE_32);
+    SysCtl_serviceWatchdog();
+    SysCtl_enableWatchdog();
+#else
+    SysCtl_disableWatchdog();
+#endif
+
     // Loop Forever
     for(;;) {
-#if defined(NORMAL_OPERATION)
+#ifdef NORMAL_OPERATION
+        /*
+         * When enabled, the watchdog makes sure both control loops
+         *   run at least every 1.3ms otherwise the device will restart
+         */
+        SysCtl_serviceWatchdog();
+
         /** PID **/
         if(get_pid_active() == true) {
             change_pwm_duty_cycle(BUCK_5V_PWM, PID_calculate(&five_volt_buck_pid, get_buck_v(BUCK_5V_ID)));
@@ -106,45 +126,79 @@ void main(void) {
 
         /** MPPT **/
         if(get_mppt_active() == true) {
+            // wait for all MPPT and Battery ADC conversions to be done
+            while(!is_mppt_adc_done());
+
             /** Update values **/
             mppt_update_values(&mppt_one);
             mppt_update_values(&mppt_two);
+            update_battery(&battery);
 
-            change_pwm_duty_cycle(MPPT_1_PWM, (get_duty_cycle(MPPT_1_PWM) + mppt_calculate(&mppt_one)));
-            change_pwm_duty_cycle(MPPT_2_PWM, (get_duty_cycle(MPPT_2_PWM) + mppt_calculate(&mppt_two)));
-            set_mppt_active(false);
+            // TODO: add hysteresis on which PV to use?
+            // Run MPPT on PV with the highest voltage
+            if(battery.state == Charge) {
+#ifdef USE_CC_CV
+                // abstract active/inactive sources
+                uint32_t mppt_active_source;
+                uint32_t mppt_inactive_source;
+                if(battery.charger.source == PV1) {
+                    mppt_active_source = MPPT_1_PWM;
+                    mppt_inactive_source = MPPT_2_PWM;
+                }
+                else if(battery.charger.source == PV2) {
+                    mppt_active_source = MPPT_2_PWM;
+                    mppt_inactive_source = MPPT_1_PWM;
+                }
 
-            /* TODO: Implement ability to switch between two MPPT's/PV's
-                if(mppt_one.suspended == false) {
-                    change_pwm_duty_cycle(MPPT_1_PWM, (get_duty_cycle(MPPT_1_PWM) + mppt_calculate(&mppt_one)));
-                }
-                else if(mppt_one.suspended == true) {
-                    // see if PV voltage is higher suspended voltage reading plus hysteresis
-                    float latest_mppt_1 = get_force_mppt_v(mppt_one.mppt_base);
-                      if(latest_mppt_1 - mppt_one.suspended_v >= 2.0) {
-                          ADC_setupSOC(ADCB_BASE, ADC_SOC_NUMBER2, ADC_TRIGGER_CPU1_TINT2, ADC_CH_ADCIN6, 15);
-                      }
-                }
-
-                if(mppt_two.suspended == false) {
-                    change_pwm_duty_cycle(MPPT_2_PWM, (get_duty_cycle(MPPT_2_PWM) + mppt_calculate(&mppt_two)));
-                }
-                else if(mppt_two.suspended == true) {
-                    // see if PV voltage is higher suspended voltage reading plus hysteresis
-                    float latest_mppt_2 = get_force_mppt_v(mppt_two.mppt_base);
-                    if(latest_mppt_2 - mppt_two.suspended_v >= 2.0) {
-                        ADC_setupSOC(ADCB_BASE, ADC_SOC_NUMBER3, ADC_TRIGGER_CPU1_TINT2, ADC_CH_ADCIN7, 15);
+                // Apply CC/CV
+                if(battery.charger.cc_cv == Continuous_Current) {
+                    if(battery.current > I_BATTERY_MAX_LIMIT) {
+                        change_pwm_duty_cycle(mppt_active_source, (get_duty_cycle(mppt_active_source) - mppt_one.delta_d));
+                        change_pwm_duty_cycle(mppt_inactive_source, 0);
+                    }
+                    else {
+                        change_pwm_duty_cycle(mppt_active_source, (get_duty_cycle(mppt_active_source) + mppt_one.delta_d));
+                        change_pwm_duty_cycle(mppt_inactive_source, 0);
                     }
                 }
-                set_mppt_active(false);
-            */
+                else if(battery.charger.cc_cv == Continuous_Voltage) {
+                    if(battery.voltage > V_BATTERY_CHG_LIMIT) {
+                        change_pwm_duty_cycle(mppt_active_source, (get_duty_cycle(mppt_active_source) - mppt_one.delta_d));
+                        change_pwm_duty_cycle(mppt_inactive_source, 0);
+                    }
+                    else {
+                        change_pwm_duty_cycle(mppt_active_source, (get_duty_cycle(mppt_active_source) + mppt_one.delta_d));
+                        change_pwm_duty_cycle(mppt_inactive_source, 0);
+                    }
+                }
+                else if(battery.charger.cc_cv == Battery_Full) {
+                    change_pwm_duty_cycle(MPPT_1_PWM, 0);
+                    change_pwm_duty_cycle(MPPT_2_PWM, 0);
+                }
+#else
+                if(battery.charger.source == PV1) {
+                    change_pwm_duty_cycle(MPPT_1_PWM, (get_duty_cycle(MPPT_1_PWM) + mppt_calculate(&mppt_one)));
+                    change_pwm_duty_cycle(MPPT_2_PWM, 0);
+                }
+                else if(battery.charger.source == PV2) {
+                    change_pwm_duty_cycle(MPPT_2_PWM, (get_duty_cycle(MPPT_2_PWM) + mppt_calculate(&mppt_two)));
+                    change_pwm_duty_cycle(MPPT_1_PWM, 0);
+                }
+#endif
+            }
+            else {  // battery.state == Supply
+                change_pwm_duty_cycle(MPPT_1_PWM, 0);
+                change_pwm_duty_cycle(MPPT_2_PWM, 0);
+            }
+
+            set_mppt_active(false);
         }
         else if ((get_pid_active() == false) && (get_mppt_active() == false)) {
             // go to low-power mode until a timer interrupt wakes up CPU
             IDLE;
         }
 #endif
-#if defined(TEST_OUTPUT_BUCKS)
+#ifdef TEST_OUTPUT_BUCKS
         if(get_pid_active() == true) {
             change_pwm_duty_cycle(BUCK3V3_BASE, PID_calculate(&five_volt_buck_pid, get_buck_v(BUCK3V3_BASE)));
             change_pwm_duty_cycle(BUCK5V0_BASE, PID_calculate(&three_volt_buck_pid, get_buck_v(BUCK5V0_BASE)));
@@ -155,7 +209,7 @@ void main(void) {
             IDLE;
         }
 #endif
-#if defined(TEST_MPPT_BUCKS)
+#ifdef TEST_MPPT_BUCKS
         if(get_mppt_active() == true) {
             /** Update values **/
             mppt_update_values(&mppt_one);
