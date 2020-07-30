@@ -50,6 +50,13 @@ float get_battery_v(void);
 float get_battery_i(void);
 
 /***    I N T E R R U P T S    ***/
+
+/*
+ * ADCA1 - INT1.1           ADCB1 - INT1.2
+ * ADCA2 - INT10.2          ADCB2 - INT10.6
+ * ADCA3 - INT10.3          ADCB3 - INT10.7
+ * ADCA4 - INT10.4          ADCB4 - INT10.8
+ */
 __interrupt void adc_buck_5V_irq(void);
 __interrupt void adc_buck_3V3_irq(void);
 __interrupt void adc_mppt_one_v_irq(void);

@@ -81,6 +81,14 @@ void init_adc(void) {
     ADC_setInterruptSource(ADCB_BASE, ADC_INT_NUMBER4, ADC_SOC_NUMBER3);
 
     // Enable interrupts
+
+    /*
+     * ADCA1 - INT1.1           ADCB1 - INT1.2
+     * ADCA2 - INT10.2          ADCB2 - INT10.6
+     * ADCA3 - INT10.3          ADCB3 - INT10.7
+     * ADCA4 - INT10.4          ADCB4 - INT10.8
+     */
+
     ADC_enableInterrupt(ADCA_BASE, ADC_INT_NUMBER1);
     ADC_enableInterrupt(ADCA_BASE, ADC_INT_NUMBER2);
     ADC_enableInterrupt(ADCA_BASE, ADC_INT_NUMBER3);
@@ -234,7 +242,7 @@ __interrupt void adc_buck_3V3_irq(void) {
     buck_3V3_stepped_down_v = adc_convert_to_v(buck_3V3_mv);
     buck_3V3_v = VOLTAGE_UNDIVIDER(buck_3V3_stepped_down_v, BUCK_3V3_OUTPUT_R1, BUCK_3V3_OUTPUT_R2);
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER2);
-    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
 }
 
 /** MPPT 1 **/
@@ -246,8 +254,7 @@ __interrupt void adc_mppt_one_v_irq(void) {
     mppt_adc_evts[MPPT_ONE_V_ADC_EVT] = true;
 
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER3);
-//    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
-    Interrupt_clearACKGroup(0xFFF);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
 }
 
 __interrupt void adc_mppt_one_i_irq(void) {
@@ -258,7 +265,7 @@ __interrupt void adc_mppt_one_i_irq(void) {
     mppt_adc_evts[MPPT_ONE_I_ADC_EVT] = true;
 
     ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER4);
-    Interrupt_clearACKGroup(0xFFF);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
 }
 
 /** MPPT 2 **/
@@ -269,9 +276,8 @@ __interrupt void adc_mppt_two_v_irq(void) {
 
     mppt_adc_evts[MPPT_TWO_V_ADC_EVT] = true;
 
-    ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER1);
-//    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
-    Interrupt_clearACKGroup(0xFFF);
+    ADC_clearInterruptStatus(ADCB_BASE, ADC_INT_NUMBER1);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
 }
 
 __interrupt void adc_mppt_two_i_irq(void) {
@@ -281,8 +287,8 @@ __interrupt void adc_mppt_two_i_irq(void) {
 
     mppt_adc_evts[MPPT_TWO_I_ADC_EVT] = true;
 
-    ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER2);
-    Interrupt_clearACKGroup(0xFFF);
+    ADC_clearInterruptStatus(ADCB_BASE, ADC_INT_NUMBER2);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
 }
 
 
@@ -296,9 +302,8 @@ __interrupt void adc_battery_v_irq(void) {
 
     mppt_adc_evts[MPPT_BATT_V_ADC_EVT] = true;
 
-    ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER3);
-//    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
-    Interrupt_clearACKGroup(0xFFF);
+    ADC_clearInterruptStatus(ADCB_BASE, ADC_INT_NUMBER3);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
 }
 
 __interrupt void adc_battery_i_irq(void) {
@@ -308,7 +313,6 @@ __interrupt void adc_battery_i_irq(void) {
 
     mppt_adc_evts[MPPT_BATT_I_ADC_EVT] = true;
 
-    ADC_clearInterruptStatus(ADCA_BASE, ADC_INT_NUMBER4);
-//    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP1);
-    Interrupt_clearACKGroup(0xFFF);
+    ADC_clearInterruptStatus(ADCB_BASE, ADC_INT_NUMBER4);
+    Interrupt_clearACKGroup(INTERRUPT_ACK_GROUP10);
 }
