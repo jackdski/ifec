@@ -38,10 +38,11 @@
 
 
 /** CONTROL LOOP CONSTANTS **/
-#define PID_FREQUENCY           100000U // [Hz]
+#define PID_FREQUENCY           500000U // [Hz]
 #define MPPT_FREQUENCY          500U    // [Hz]
+#define US_PER_SECOND           1000000
 
-#define FREQUENCY_TO_US(FREQ)   ((1 / FREQ) * (1000000))
+#define FREQUENCY_TO_US(FREQ)   (US_PER_SECOND / FREQ)
 #define PID_US                  FREQUENCY_TO_US(PID_FREQUENCY)
 
 #define KP                      3.2f

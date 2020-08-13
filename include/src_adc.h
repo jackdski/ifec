@@ -41,6 +41,9 @@ bool is_mppt_adc_done(void);
 /***    C O N V E R S I O N S   ***/
 uint32_t adc_convert_to_mv(uint32_t adc_result);
 float adc_convert_to_v(uint32_t adc_result);
+void update_output_buck_conversions(void);
+void update_mppt_conversions(void);
+void update_battery_conversions(void);
 
 /***    G E T S    ***/
 float get_buck_v(uint32_t buck_base);

@@ -30,12 +30,19 @@
  *      TEST_MPPT_BUCKS
  **/
 #define NORMAL_OPERATION
-#define USE_WATCHDOG
+//#define USE_WATCHDOG
 #define USE_CC_CV
 
 
 /** Global Variables */
-Battery_t battery;
+Battery_t battery = {
+         .voltage = 0.0,
+         .current = 0.0,
+         .state = Supply,
+         .charger = Charging_Inactive
+};
+
+
 PID_t five_volt_buck_pid;
 PID_t three_volt_buck_pid;
 MPPT_t mppt_one;
@@ -64,9 +71,6 @@ void main(void) {
     // Initialize the PIE vector table with pointers to the shell Interrupt Service Routines (ISR).
     Interrupt_initVectorTable();
 
-    Interrupt_register(PID_TIMER_INT, &PID_Timer_ISR);
-    Interrupt_register(MPPT_TIMER_INT, &MPPT_Timer_ISR);
-
     // Configure peripherals
     init_led5();
     init_adc();
@@ -80,13 +84,10 @@ void main(void) {
     init_timer(PID_TIMER, PID_US);
     init_timer(MPPT_TIMER, TIMER_500US);
 
+    Interrupt_register(PID_TIMER_INT, &PID_Timer_ISR);
+    Interrupt_register(MPPT_TIMER_INT, &MPPT_Timer_ISR);
 
     // Enable interrupts
-    Interrupt_enable(INT_ADCA1);
-    Interrupt_enable(INT_ADCA2);
-    Interrupt_enable(INT_ADCA3);
-    Interrupt_enable(INT_ADCA4);
-
     Interrupt_enable(PID_TIMER_INT);
     Interrupt_enable(MPPT_TIMER_INT);
 
@@ -115,10 +116,13 @@ void main(void) {
          * When enabled, the watchdog makes sure both control loops
          *   run at least every 1.3ms otherwise the device will restart
          */
-        SysCtl_serviceWatchdog();
+//        SysCtl_serviceWatchdog();
 
         /** PID **/
         if(get_pid_active() == true) {
+            // get adc conversions
+            update_output_buck_conversions();
+
             change_pwm_duty_cycle(BUCK_5V_PWM, PID_calculate(&five_volt_buck_pid, get_buck_v(BUCK_5V_ID)));
             change_pwm_duty_cycle(BUCK_3V3_PWM, PID_calculate(&three_volt_buck_pid, get_buck_v(BUCK_3V3_ID)));
             set_pid_active(false);
@@ -127,7 +131,8 @@ void main(void) {
         /** MPPT **/
         if(get_mppt_active() == true) {
             // wait for all MPPT and Battery ADC conversions to be done
-            while(!is_mppt_adc_done());
+            update_mppt_conversions();
+            update_battery_conversions();
 
             /** Update values **/
             mppt_update_values(&mppt_one);
@@ -200,6 +205,7 @@ void main(void) {
 #endif
 #ifdef TEST_OUTPUT_BUCKS
         if(get_pid_active() == true) {
+            update_output_buck_conversions();
             change_pwm_duty_cycle(BUCK3V3_BASE, PID_calculate(&five_volt_buck_pid, get_buck_v(BUCK3V3_BASE)));
             change_pwm_duty_cycle(BUCK5V0_BASE, PID_calculate(&three_volt_buck_pid, get_buck_v(BUCK5V0_BASE)));
             set_pid_active(false);
@@ -211,6 +217,9 @@ void main(void) {
 #endif
 #ifdef TEST_MPPT_BUCKS
         if(get_mppt_active() == true) {
+            update_mppt_conversions();
+            update_battery_conversions();
+
             /** Update values **/
             mppt_update_values(&mppt_one);
             mppt_update_values(&mppt_two);

@@ -26,7 +26,7 @@ static bool mppt_active = false;
 void init_timer(uint32_t timer_base, uint32_t period) {
     // enable clock
     switch(timer_base) {
-        case(CPUTIMER0_BASE): SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TIMER0);  break;
+        case(CPUTIMER0_BASE): SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TIMER0); break;
         case(CPUTIMER1_BASE): SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TIMER1); break;
         case(CPUTIMER2_BASE): SysCtl_enablePeripheral(SYSCTL_PERIPH_CLK_TIMER2); break;
     }
