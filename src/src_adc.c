@@ -27,27 +27,82 @@
 
 bool mppt_adc_evts[MPPT_ADC_EVT_COUNT] = {0};
 
+typedef enum {
+    Voltage_Component,
+    Current_Component
+} eAdcComponentType;
+
 typedef struct {
-    uint32_t        base;
-    uint32_t        resultBase;
-    uint16_t        adcResult;
-    uint32_t        millivolts;
-    float           volts;
-    float           current;
-    ADC_SOCNumber   socNumber;
+    uint32_t            base;
+    uint32_t            resultBase;
+    uint16_t            adcResult;
+    uint32_t            millivolts;
+    float               stepped_down_volts;
+    float               volts;
+    float               current;
+    ADC_SOCNumber       socNumber;
+    eAdcComponentType   component_type;
+    uint32_t            r_one;
+    uint32_t            r_two;
 } adcListComponent_t;
 
-static adcListComponent_t mppt_one_voltage = {ADCA_BASE, ADCARESULT_BASE, 0, 0, 0.0, 0.0, ADC_SOC_NUMBER0};
-static adcListComponent_t mppt_one_current = {ADCA_BASE, ADCARESULT_BASE, 0, 0, 0.0, 0.0, ADC_SOC_NUMBER1};
-static adcListComponent_t mppt_two_voltage = {ADCA_BASE, ADCARESULT_BASE, 0, 0, 0.0, 0.0, ADC_SOC_NUMBER2};
-static adcListComponent_t mppt_two_current = {ADCA_BASE, ADCARESULT_BASE, 0, 0, 0.0, 0.0, ADC_SOC_NUMBER3};
+static adcListComponent_t mppt_one_voltage = {
+                                              ADCA_BASE, ADCARESULT_BASE,
+                                              0, 0, 0.0, 0.0, 0.0,
+                                              ADC_SOC_NUMBER0, Voltage_Component,
+                                              V_PV_SENSE_R1, V_PV_SENSE_R2
+                                             };
+
+static adcListComponent_t mppt_one_current = {
+                                              ADCA_BASE, ADCARESULT_BASE,
+                                              0, 0, 0.0, 0.0, 0.0,
+                                              ADC_SOC_NUMBER1, Current_Component,
+                                              0, 0
+                                             };
 
 
-static adcListComponent_t buck_5V_voltage  = {ADCA_BASE, ADCARESULT_BASE, 0, 0, 0.0, 0.0, ADC_SOC_NUMBER4};
-static adcListComponent_t buck_3V3_voltage = {ADCA_BASE, ADCARESULT_BASE, 0, 0, 0.0, 0.0, ADC_SOC_NUMBER5};
+static adcListComponent_t mppt_two_voltage = {
+                                              ADCA_BASE, ADCARESULT_BASE,
+                                              0, 0, 0.0, 0.0, 0.0,
+                                              ADC_SOC_NUMBER2, Voltage_Component,
+                                              V_PV_SENSE_R1, V_PV_SENSE_R2
+                                             };
 
-static adcListComponent_t battery_voltage = {ADCA_BASE, ADCARESULT_BASE, 0, 0, 0.0, 0.0, ADC_SOC_NUMBER6};
-static adcListComponent_t battery_current = {ADCA_BASE, ADCARESULT_BASE, 0, 0, 0.0, 0.0, ADC_SOC_NUMBER7};
+static adcListComponent_t mppt_two_current = {
+                                              ADCA_BASE, ADCARESULT_BASE,
+                                              0, 0, 0.0, 0.0, 0.0,
+                                              ADC_SOC_NUMBER3, Current_Component,
+                                              0, 0
+                                             };
+
+
+static adcListComponent_t buck_5V_voltage  = {
+                                              ADCA_BASE, ADCARESULT_BASE,
+                                              0, 0, 0.0, 0.0, 0.0,
+                                              ADC_SOC_NUMBER4, Voltage_Component,
+                                              BUCK_5V_OUTPUT_R1, BUCK_5V_OUTPUT_R2
+                                             };
+
+static adcListComponent_t buck_3V3_voltage = {
+                                              ADCA_BASE, ADCARESULT_BASE,
+                                              0, 0, 0.0, 0.0, 0.0,
+                                              ADC_SOC_NUMBER5, Voltage_Component,
+                                              BUCK_3V3_OUTPUT_R1, BUCK_3V3_OUTPUT_R2
+                                             };
+
+static adcListComponent_t battery_voltage = {
+                                             ADCA_BASE, ADCARESULT_BASE,
+                                             0, 0, 0.0, 0.0, 0.0,
+                                             ADC_SOC_NUMBER6, Voltage_Component,
+                                             V_BATT_SENSE_R1, V_BATT_SENSE_R2
+                                            };
+
+static adcListComponent_t battery_current = {
+                                             ADCA_BASE, ADCARESULT_BASE,
+                                             0, 0, 0.0, 0.0, 0.0,
+                                             ADC_SOC_NUMBER7, Current_Component,
+                                             0, 0
+                                            };
 
 
 void init_adc(void) {
@@ -98,8 +153,8 @@ float get_buck_v(uint32_t buck_id) {
 
 float get_buck_stepped_down_v(uint32_t buck_id) {
     switch(buck_id) {
-    case(BUCK_5V_ID): return buck_5V_voltage.millivolts;
-    case(BUCK_3V3_ID): return buck_3V3_voltage.millivolts;
+    case(BUCK_5V_ID): return buck_5V_voltage.stepped_down_volts;
+    case(BUCK_3V3_ID): return buck_3V3_voltage.stepped_down_volts;
     }
     return -1.0;
 }
@@ -114,8 +169,8 @@ float get_mppt_v(uint32_t mppt_id) {
 
 float get_mppt_stepped_down_v(uint32_t mppt_id) {
     switch(mppt_id) {
-    case(MPPT_ONE_ID): return mppt_one_voltage.millivolts;
-    case(MPPT_TWO_ID): return mppt_two_voltage.millivolts;
+    case(MPPT_ONE_ID): return mppt_one_voltage.stepped_down_volts;
+    case(MPPT_TWO_ID): return mppt_two_voltage.stepped_down_volts;
     }
     return -1.0;
 }
@@ -130,6 +185,10 @@ float get_mppt_i(uint32_t mppt_id) {
 
 float get_battery_v(void) {
     return battery_voltage.volts;
+}
+
+float get_battery_stepped_down_v(void) {
+    return battery_voltage.stepped_down_volts;
 }
 
 float get_battery_i(void) {
@@ -165,21 +224,32 @@ float adc_convert_to_v(uint32_t adc_result) {
     return (((float)adc_result * VREF_MV_F) / ADC_MAX_VALUE_F);
 }
 
+
+/*
+ * @brief Updates the ADC component
+ */
+void update_conversion(adcListComponent_t * adcComponent) {
+    ADC_forceSOC(adcComponent->base, adcComponent->socNumber);
+    while(ADC_isBusy(adcComponent->base));
+    adcComponent->adcResult = ADC_readResult(adcComponent->resultBase, adcComponent->socNumber);
+    adcComponent->millivolts = adc_convert_to_mv(adcComponent->adcResult);
+    adcComponent->stepped_down_volts = adc_convert_to_v(adcComponent->adcResult);
+
+    if(adcComponent->component_type == Voltage_Component) {
+        adcComponent->volts = VOLTAGE_UNDIVIDER(adcComponent->stepped_down_volts, adcComponent->r_one, adcComponent->r_two);
+    }
+    else if(adcComponent->component_type == Current_Component) {
+        adcComponent->current = I_SENSED(adcComponent->stepped_down_volts);
+    }
+}
+
+
 /**
  * @brief Updates the buck ADC list based on the latest ADC results available
  */
 void update_output_buck_conversions(void) {
-    ADC_forceSOC(buck_5V_voltage.base, buck_5V_voltage.socNumber);
-    while(ADC_isBusy(buck_5V_voltage.base));
-    buck_5V_voltage.adcResult = ADC_readResult(buck_5V_voltage.resultBase, buck_5V_voltage.socNumber);
-    buck_5V_voltage.volts = VOLTAGE_UNDIVIDER((adc_convert_to_v(buck_5V_voltage.adcResult)), BUCK_5V_OUTPUT_R1, BUCK_5V_OUTPUT_R2);
-    buck_5V_voltage.millivolts = adc_convert_to_mv(buck_5V_voltage.adcResult);
-
-    ADC_forceSOC(buck_3V3_voltage.base, buck_3V3_voltage.socNumber);
-    while(ADC_isBusy(buck_3V3_voltage.base));
-    buck_3V3_voltage.adcResult = ADC_readResult(buck_3V3_voltage.resultBase, buck_3V3_voltage.socNumber);
-    buck_3V3_voltage.volts = VOLTAGE_UNDIVIDER((adc_convert_to_v(buck_3V3_voltage.adcResult)), BUCK_3V3_OUTPUT_R1, BUCK_3V3_OUTPUT_R2);
-    buck_3V3_voltage.millivolts = adc_convert_to_mv(buck_3V3_voltage.adcResult);
+    update_conversion(&buck_5V_voltage);
+    update_conversion(&buck_3V3_voltage);
 }
 
 /**
@@ -187,47 +257,20 @@ void update_output_buck_conversions(void) {
  */
 void update_mppt_conversions(void) {
     // MPPT 1
-    ADC_forceSOC(mppt_one_voltage.base, mppt_one_voltage.socNumber);
-    while(ADC_isBusy(mppt_one_voltage.base));
-    mppt_one_voltage.adcResult = ADC_readResult(mppt_one_voltage.resultBase, mppt_one_voltage.socNumber);
-    mppt_one_voltage.volts = VOLTAGE_UNDIVIDER((adc_convert_to_v(mppt_one_voltage.adcResult)), V_PV_SENSE_R1, V_PV_SENSE_R2);
-    mppt_one_voltage.millivolts = adc_convert_to_mv(mppt_one_voltage.adcResult);
-
-    ADC_forceSOC(mppt_one_current.base, mppt_one_current.socNumber);
-    while(ADC_isBusy(mppt_one_current.base));
-    mppt_one_current.adcResult = ADC_readResult(mppt_one_current.resultBase, mppt_one_current.socNumber);
-    mppt_one_current.current = I_SENSED(adc_convert_to_v(mppt_one_current.adcResult));
-    mppt_one_current.millivolts = adc_convert_to_mv(mppt_one_current.adcResult);
+    update_conversion(&mppt_one_voltage);
+    update_conversion(&mppt_one_current);
 
     // MPPT 2
-    ADC_forceSOC(mppt_two_voltage.base, mppt_two_voltage.socNumber);
-    while(ADC_isBusy(mppt_two_voltage.base));
-    mppt_two_voltage.adcResult = ADC_readResult(mppt_two_voltage.resultBase, mppt_two_voltage.socNumber);
-    mppt_two_voltage.volts = VOLTAGE_UNDIVIDER((adc_convert_to_v(mppt_two_voltage.adcResult)), V_PV_SENSE_R1, V_PV_SENSE_R2);
-    mppt_two_voltage.millivolts = adc_convert_to_mv(mppt_two_voltage.adcResult);
-
-    ADC_forceSOC(mppt_two_current.base, mppt_two_current.socNumber);
-    while(ADC_isBusy(mppt_two_current.base));
-    mppt_two_current.adcResult = ADC_readResult(mppt_two_current.resultBase, mppt_two_current.socNumber);
-    mppt_two_current.current = I_SENSED(adc_convert_to_v(mppt_two_current.adcResult));
-    mppt_two_current.millivolts = adc_convert_to_mv(mppt_two_current.adcResult);
+    update_conversion(&mppt_two_voltage);
+    update_conversion(&mppt_two_current);
 }
 
 /**
  * @brief Updates the Battery ADC list based on the latest ADC results available
  */
 void update_battery_conversions(void) {
-    ADC_forceSOC(battery_voltage.base, battery_voltage.socNumber);
-    while(ADC_isBusy(battery_voltage.base));
-    battery_voltage.adcResult = ADC_readResult(battery_voltage.resultBase, battery_voltage.socNumber);
-    battery_voltage.volts = VOLTAGE_UNDIVIDER((adc_convert_to_v(battery_voltage.adcResult)), V_BATT_SENSE_R1, V_BATT_SENSE_R2);
-    battery_voltage.millivolts = adc_convert_to_mv(battery_voltage.adcResult);
-
-    ADC_forceSOC(battery_current.base, battery_current.socNumber);
-    while(ADC_isBusy(battery_current.base));
-    battery_current.adcResult = ADC_readResult(battery_current.resultBase, battery_current.socNumber);
-    battery_current.current = I_SENSED(adc_convert_to_v(battery_current.adcResult));
-    battery_current.millivolts = adc_convert_to_mv(battery_current.adcResult);
+    update_conversion(&battery_voltage);
+    update_conversion(&battery_current);
 }
 
 
