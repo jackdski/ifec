@@ -109,9 +109,11 @@ void main(void) {
     SysCtl_disableWatchdog();
 #endif
 
+    float mppt_one_pwm_delta = 0.0;
+    float mppt_two_pwm_delta = 0.0;
+
     // Loop Forever
     for(;;) {
-#ifdef NORMAL_OPERATION
         /*
          * When enabled, the watchdog makes sure both control loops
          *   run at least every 1.3ms otherwise the device will restart
@@ -134,106 +136,58 @@ void main(void) {
             update_mppt_conversions();
             update_battery_conversions();
 
-            /** Update values **/
+            // update values
             mppt_update_values(&mppt_one);
             mppt_update_values(&mppt_two);
             update_battery(&battery);
 
-            // TODO: add hysteresis on which PV to use?
-            // Run MPPT on PV with the highest voltage
-            if(battery.state == Charge) {
-#ifdef USE_CC_CV
-                // abstract active/inactive sources
-                uint32_t mppt_active_source;
-                uint32_t mppt_inactive_source;
-                if(battery.charger.source == PV1) {
-                    mppt_active_source = MPPT_1_PWM;
-                    mppt_inactive_source = MPPT_2_PWM;
+            // update duty cycles
+            mppt_one_pwm_delta = mppt_calculate(&mppt_one);
+            mppt_two_pwm_delta = mppt_calculate(&mppt_two);
+
+            // Apply CC/CV
+            if(battery.charger.cc_cv == Continuous_Current)
+            {
+                if(battery.current > I_BATTERY_MAX_LIMIT)
+                {
+                    // over-current, lower duty cycles
+                    mppt_one_pwm_delta -= mppt_one.delta_d;
+                    mppt_two_pwm_delta -= mppt_two.delta_d;
                 }
-                else if(battery.charger.source == PV2) {
-                    mppt_active_source = MPPT_2_PWM;
-                    mppt_inactive_source = MPPT_1_PWM;
+                else
+                {
+                    // use original values, likely increases
                 }
 
-                // Apply CC/CV
-                if(battery.charger.cc_cv == Continuous_Current) {
-                    if(battery.current > I_BATTERY_MAX_LIMIT) {
-                        change_pwm_duty_cycle(mppt_active_source, (get_duty_cycle(mppt_active_source) - mppt_one.delta_d));
-                        change_pwm_duty_cycle(mppt_inactive_source, 0);
-                    }
-                    else {
-                        change_pwm_duty_cycle(mppt_active_source, (get_duty_cycle(mppt_active_source) + mppt_one.delta_d));
-                        change_pwm_duty_cycle(mppt_inactive_source, 0);
-                    }
-                }
-                else if(battery.charger.cc_cv == Continuous_Voltage) {
-                    if(battery.voltage > V_BATTERY_CHG_LIMIT) {
-                        change_pwm_duty_cycle(mppt_active_source, (get_duty_cycle(mppt_active_source) - mppt_one.delta_d));
-                        change_pwm_duty_cycle(mppt_inactive_source, 0);
-                    }
-                    else {
-                        change_pwm_duty_cycle(mppt_active_source, (get_duty_cycle(mppt_active_source) + mppt_one.delta_d));
-                        change_pwm_duty_cycle(mppt_inactive_source, 0);
-                    }
-                }
-                else if(battery.charger.cc_cv == Battery_Full) {
-                    change_pwm_duty_cycle(MPPT_1_PWM, 0);
-                    change_pwm_duty_cycle(MPPT_2_PWM, 0);
-                }
-#else
-                if(battery.charger.source == PV1) {
-                    change_pwm_duty_cycle(MPPT_1_PWM, (get_duty_cycle(MPPT_1_PWM) + mppt_calculate(&mppt_one)));
-                    change_pwm_duty_cycle(MPPT_2_PWM, 0);
-                }
-                else if(battery.charger.source == PV2) {
-                    change_pwm_duty_cycle(MPPT_2_PWM, (get_duty_cycle(MPPT_2_PWM) + mppt_calculate(&mppt_two)));
-                    change_pwm_duty_cycle(MPPT_1_PWM, 0);
-                }
-#endif
+                change_pwm_duty_cycle(MPPT_1_PWM, (get_duty_cycle(MPPT_1_PWM) + mppt_one_pwm_delta));
+                change_pwm_duty_cycle(MPPT_2_PWM, (get_duty_cycle(MPPT_2_PWM) + mppt_two_pwm_delta));
             }
-            else {  // battery.state == Supply
+            else if(battery.charger.cc_cv == Continuous_Voltage)
+            {
+                if(battery.voltage > V_BATTERY_CHG_LIMIT)
+                {
+                    // over-voltage, lower duty cycles
+                    mppt_one_pwm_delta -= mppt_one.delta_d;
+                    mppt_two_pwm_delta -= mppt_two.delta_d;
+                }
+                else
+                {
+                    // use original values, likely increases
+                }
+
+                change_pwm_duty_cycle(MPPT_1_PWM, (get_duty_cycle(MPPT_1_PWM) + mppt_one_pwm_delta));
+                change_pwm_duty_cycle(MPPT_2_PWM, (get_duty_cycle(MPPT_2_PWM) + mppt_two_pwm_delta));
+            }
+            else if(battery.charger.cc_cv == Battery_Full)
+            {
                 change_pwm_duty_cycle(MPPT_1_PWM, 0);
                 change_pwm_duty_cycle(MPPT_2_PWM, 0);
             }
-
             set_mppt_active(false);
         }
         else if ((get_pid_active() == false) && (get_mppt_active() == false)) {
             // go to low-power mode until a timer interrupt wakes up CPU
             IDLE;
         }
-#endif
-#ifdef TEST_OUTPUT_BUCKS
-        if(get_pid_active() == true) {
-            update_output_buck_conversions();
-            change_pwm_duty_cycle(BUCK3V3_BASE, PID_calculate(&five_volt_buck_pid, get_buck_v(BUCK3V3_BASE)));
-            change_pwm_duty_cycle(BUCK5V0_BASE, PID_calculate(&three_volt_buck_pid, get_buck_v(BUCK5V0_BASE)));
-            set_pid_active(false);
-        }
-        else if (get_pid_active() == false) {
-            // go to low-power mode until a timer interrupt wakes up CPU
-            IDLE;
-        }
-#endif
-#ifdef TEST_MPPT_BUCKS
-        if(get_mppt_active() == true) {
-            update_mppt_conversions();
-            update_battery_conversions();
-
-            /** Update values **/
-            mppt_update_values(&mppt_one);
-            mppt_update_values(&mppt_two);
-
-            /** Change duty cycles **/
-            change_pwm_duty_cycle(MPPT_1_PWM, (get_duty_cycle(MPPT_1_PWM) + mppt_calculate(&mppt_one)));
-            change_pwm_duty_cycle(MPPT_2_PWM, (get_duty_cycle(MPPT_2_PWM) + mppt_calculate(&mppt_two)));
-
-            set_mppt_active(false);
-        }
-        else if (get_mppt_active() == false) {
-            // go to low-power mode until a timer interrupt wakes up CPU
-            IDLE;
-        }
-#endif
     }
 }
