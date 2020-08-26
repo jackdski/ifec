@@ -131,7 +131,8 @@ void main(void) {
         }
 
         /** MPPT **/
-        if(get_mppt_active() == true) {
+        if(get_mppt_active() == true)
+        {
             // wait for all MPPT and Battery ADC conversions to be done
             update_mppt_conversions();
             update_battery_conversions();
@@ -151,8 +152,8 @@ void main(void) {
                 if(battery.current > I_BATTERY_MAX_LIMIT)
                 {
                     // over-current, lower duty cycles
-                    mppt_one_pwm_delta -= mppt_one.delta_d;
-                    mppt_two_pwm_delta -= mppt_two.delta_d;
+                    mppt_one_pwm_delta -= mppt_one.delta_d * 5;
+                    mppt_two_pwm_delta -= mppt_two.delta_d * 5;
                 }
                 else
                 {
@@ -167,8 +168,8 @@ void main(void) {
                 if(battery.voltage > V_BATTERY_CHG_LIMIT)
                 {
                     // over-voltage, lower duty cycles
-                    mppt_one_pwm_delta -= mppt_one.delta_d;
-                    mppt_two_pwm_delta -= mppt_two.delta_d;
+                    mppt_one_pwm_delta -= mppt_one.delta_d * 5;
+                    mppt_two_pwm_delta -= mppt_two.delta_d * 5;
                 }
                 else
                 {
@@ -185,7 +186,8 @@ void main(void) {
             }
             set_mppt_active(false);
         }
-        else if ((get_pid_active() == false) && (get_mppt_active() == false)) {
+        else if ((get_pid_active() == false) && (get_mppt_active() == false))
+        {
             // go to low-power mode until a timer interrupt wakes up CPU
             IDLE;
         }
